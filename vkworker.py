@@ -4,7 +4,6 @@ import os
 import json
 from config import vk_config
 from sqlworker import sqlcrawler
-from classes import Link, User
 
 log = logging.getLogger(__name__)
 
@@ -23,33 +22,31 @@ def get_photos_links(attachments: list[dict]) -> list[str] | None:
     return [attachment["photo"]["sizes"][-1]["url"] for attachment in attachments if attachment["type"] == "photo"]
 
 class vkfetcher:
-  def __init__(self, link:Link = None, vk_token: str = vk_config.access_token, dbmanager=sqlcrawler()):
-        self.link: Link = link
+  def __init__(self, vk_token: str = vk_config.access_token, dbmanager=sqlcrawler()):
         self.api: vk.API = vk.API(vk_token, v="5.131")
         self.dbmanager = dbmanager
-        self.last_api_call_time: int = 0
-        if self.link.post_id is None:
-            self.link.post_id = max([p["id"] for p in self.api.wall.get(owner_id=self.link.vk_id, count=2)["items"]])
-        self.dbmanager.update_post(self.link)
 
-  def get_new_posts(self, link = None, iteration_limit=20, do_db = True):
-        if link is None:
-            link = self.link
+  def get_new_posts(self, vk_id, iteration_limit=20):
         posts = []
+        post_id = self.dbmanager.get_post_id(vk_id)
+        if post_id is None:
+            try:
+                post_id = max([p["id"] for p in self.api.wall.get(owner_id=vk_id, count=2)["items"]])
+            except:
+                raise ValueError(f"Something is off with group_id = {vk_id}")
         for i in range(iteration_limit):
-            new_posts = self.api.wall.get(owner_id=self.link.vk_id, count=5, offset=5*i)["items"]
+            new_posts = self.api.wall.get(owner_id=vk_id, count=5, offset=5*i)["items"]
             new_posts_ids = [post["id"] for post in new_posts]
             posts += new_posts
-            if not exist_bigger_element(new_posts_ids, self.link.post_id):
+            if not exist_bigger_element(new_posts_ids, post_id):
                 log.debug(posts)
-                posts = [p for p in posts if p["id"] > self.link.post_id]
+                posts = [p for p in posts if p["id"] > post_id]
                 if len(posts) != 0:
-                    self.link.post_id = posts[0]["id"]
-                    log.info(f"New last post id for {self.link.vk_id} is {self.link.post_id}")
+                    post_id = posts[0]["id"]
+                    log.info(f"New last post id for {vk_id} is {post_id}")
                 else:
                     log.info("No new posts found")
-                if do_db:
-                    self.dbmanager.update_post(self.link)
+                self.dbmanager.update_post_id(vk_id, post_id)
                 return posts
         log.error("Too many posts found for {self.vk_id}. Maybe something wrong")
         raise ValueError("Too many posts found")
@@ -58,8 +55,8 @@ if __name__ == "__main__":
     vk_page_id = -214737987  # Replace with the VK page ID you want to check
     access_token = vk_config.access_token# Replace with your VK access token
 
-    crawler = vkfetcher(Link(vk_page_id, None, None, None), access_token)
-    new_posts = crawler.get_new_posts()
+    crawler = vkfetcher(access_token)
+    new_posts = crawler.get_new_posts(-214737987)
     if new_posts:
         print(f"Found {len(new_posts)} new posts:")
         for post in new_posts:
