@@ -37,14 +37,23 @@ class sqlcrawler:
         return ans["active"]
 
     def get_group_id_by_name(self, group_name):
-        self.cursor.execute(
-            f"SELECT group_id from groups where group_name = '{group_name}'")
+        requeststring = f"SELECT group_id from groups where group_name = '{group_name}'"
+        self.cursor.execute(requeststring)
         ans = self.cursor.fetchone()
         if ans:
             return ans["group_id"]
         else:
             return ans
-        
+    
+    def get_parent(self, folder_name):
+        self.cursor.execute(
+            f"SELECT parent_name from folders where folder_name = '{folder_name}'")
+        ans = self.cursor.fetchone()
+        if ans:
+            return ans["parent_name"]
+        else:
+            return ans
+
     def get_group_name_by_id(self, group_id):
         self.cursor.execute(
             f"SELECT group_name from groups where group_id = '{group_id}'")
@@ -55,20 +64,29 @@ class sqlcrawler:
             return ans
 
     def get_groups(self):
-        self.cursor.execute("SELECT group_id, group_name from groups")
+        '''
+        returns a list of [group_id, group_name, group_link]
+        '''
+        self.cursor.execute("SELECT group_id, group_name, group_link from groups")
         ans = self.cursor.fetchall()
         return ans
 
     def get_groups_from_folder(self, folder):
+        '''
+        returns a list of [group_id, group_name, group_link]
+        '''
         self.cursor.execute(
-            f"SELECT group_name from groups where folder = '{folder}'")
+            f"SELECT group_id, group_name, group_link from groups where folder = '{folder}'")
         ans = self.cursor.fetchall()
-        return [elem[0] for elem in ans]
+        return ans
 
-    def get_folders(self):
-        self.cursor.execute("SELECT folder_name from folders")
+    def get_folders(self, parent = None):
+        if parent is None:
+            self.cursor.execute(f"SELECT folder_id, folder_name from folders where parent_name is NULL")
+        else:
+            self.cursor.execute(f"SELECT folder_id, folder_name from folders where parent_name = '{parent}'")
         ans = self.cursor.fetchall()
-        return [elem[0] for elem in ans]
+        return ans
 
     def flip_subscribe(self, user_id, group_name):
         group_id = self.get_group_id_by_name(group_name)
