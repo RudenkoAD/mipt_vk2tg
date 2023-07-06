@@ -16,6 +16,9 @@ vkmanager = vkfetcher(dbmanager=dbmanager)
 CHECKMARK_EMOJI = "✅"
 CROSS_EMOJI = "❌"
 
+
+
+
 async def get_and_fetch_all(context):
     for group_id, group_name, link in dbmanager.get_groups():
       posts = vkmanager.get_new_posts(vk_id = group_id)
@@ -24,11 +27,16 @@ async def get_and_fetch_all(context):
           await context.bot.sendMessage(chat_id=user_id, text=f"От {group_name}:\n"+post['text'])
           await sleep(1)
 
+#helpers
+def id(folder_name):
+  return dbmanager.get_folder_id_by_name(folder_name)
+def name(folder_id):
+  return dbmanager.get_folder_name_by_id(folder_id)
 # Commands for the main menu
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
   folders:list[str] = dbmanager.get_folders()
   # Create the keyboard layout
-  keyboard = [[InlineKeyboardButton(folder, callback_data="F_"+folder)] for id, folder in folders]
+  keyboard = [[InlineKeyboardButton(folder, callback_data=f"F_{id}")] for id, folder in folders]
   await update.message.reply_text(
     'Привет, перед тобой бот который помогает аггрегировать все паблики, связанные с мфти в одном месте. Сейчас бот на очень ранней стадии, поэтому в нем могут встречаться баги. Кроме того, сейчас в боте далеко не все важные паблики. Про многие я могу даже не знать. Поэтому про любые ошибки, пропущенные паблики, или просто свои пожелания для бота вы можете написать мне командой /contact', 
     reply_markup=InlineKeyboardMarkup(keyboard)
@@ -38,25 +46,26 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
   await query.answer()
   folders:list[str] = dbmanager.get_folders(parent = None)
   # Create the keyboard layout
-  keyboard = [[InlineKeyboardButton(folder, callback_data="F_"+folder)] for id, folder in folders]
+  keyboard = [[InlineKeyboardButton(folder, callback_data=f"F_{id}")] for id, folder in folders]
   await query.edit_message_text(text=query.message.text, reply_markup=InlineKeyboardMarkup(keyboard))
 #commands to handle bot navigation
 async def folder(update: Update, context: ContextTypes.DEFAULT_TYPE):
   query = update.callback_query
   user_id = update.effective_user.id
   await query.answer()
-  folder = query.data.split("_")[1]
-  data = dbmanager.get_groups_from_folder(folder = folder)
+  folder_id = int(query.data.split("_")[1])
+  folder = name(folder_id)
+  data = dbmanager.get_groups_from_folder(folder)
   subfolders = dbmanager.get_folders(parent = folder)
   parent = dbmanager.get_parent(folder)
   
-  backbutton = InlineKeyboardButton("Меню", callback_data = "MENU") if parent is None else InlineKeyboardButton("Назад", callback_data = f"F_{parent}")
+  backbutton = InlineKeyboardButton("Меню", callback_data = "MENU") if parent is None else InlineKeyboardButton("Назад", callback_data = f"F_{id(parent)}")
   
   keyboard = \
-  [[InlineKeyboardButton(f"{subfolder}", callback_data=f"F_{subfolder}")]
-    for id, subfolder in subfolders]+\
+  [[InlineKeyboardButton(f"{subfolder}", callback_data=f"F_{id(subfolder)}")]
+    for ids, subfolder in subfolders]+\
   [[InlineKeyboardButton(f"{CHECKMARK_EMOJI if dbmanager.is_subscribed(user_id, group) else CROSS_EMOJI} {group}", 
-                         callback_data=f"G_{folder}_{group}")] for ids, group, link in data]+\
+                         callback_data=f"G_{id(folder)}_{ids}")] for ids, group, link in data]+\
   [[backbutton]]
   #, InlineKeyboardButton(f"ССЫЛКА", url=link)
   await query.edit_message_text(text=query.message.text, reply_markup=InlineKeyboardMarkup(keyboard))
@@ -65,20 +74,21 @@ async def group(update: Update, context: ContextTypes.DEFAULT_TYPE):
   query = update.callback_query
   user_id = update.effective_user.id
   await query.answer()
-  dbmanager.flip_subscribe(user_id, query.data.split("_")[2])
-  folder = query.data.split("_")[1]
+  dbmanager.flip_subscribe(user_id, int(query.data.split("_")[2]))
+  folder_id = int(query.data.split("_")[1])
+  folder = name(folder_id)
 
   data = dbmanager.get_groups_from_folder(folder = folder)
   subfolders = dbmanager.get_folders(parent = folder)
   parent = dbmanager.get_parent(folder)
 
-  backbutton = InlineKeyboardButton("Меню", callback_data = "MENU") if parent is None else InlineKeyboardButton("Назад", callback_data = f"F_{parent}")
+  backbutton = InlineKeyboardButton("Меню", callback_data = "MENU") if parent is None else InlineKeyboardButton("Назад", callback_data = f"F_{id(parent)}")
   
   keyboard = \
-  [[InlineKeyboardButton(f"{subfolder}", callback_data=f"F_{subfolder}")]
+  [[InlineKeyboardButton(f"{subfolder}", callback_data=f"F_{id}")]
     for id, subfolder in subfolders]+\
   [[InlineKeyboardButton(f"{CHECKMARK_EMOJI if dbmanager.is_subscribed(user_id, group) else CROSS_EMOJI} {group}", 
-                         callback_data=f"G_{folder}_{group}")] for id, group, link in data]+\
+                         callback_data=f"G_{folder_id}_{ids}")] for ids, group, link in data]+\
   [[backbutton]]
   #, InlineKeyboardButton(f"ССЫЛКА", url=link)
   await query.edit_message_text(text=query.message.text, reply_markup=InlineKeyboardMarkup(keyboard))

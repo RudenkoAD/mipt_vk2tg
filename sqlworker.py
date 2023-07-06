@@ -63,6 +63,24 @@ class sqlcrawler:
         else:
             return ans
 
+    def get_folder_name_by_id(self, folder_id):
+        self.cursor.execute(
+            f"SELECT folder_name from folders where folder_id = '{folder_id}'")
+        ans = self.cursor.fetchone()
+        if ans:
+            return ans["folder_name"]
+        else:
+            return ans
+        
+    def get_folder_id_by_name(self, folder_name):
+        self.cursor.execute(
+            f"SELECT folder_id from folders where folder_name = '{folder_name}'")
+        ans = self.cursor.fetchone()
+        if ans:
+            return ans["folder_id"]
+        else:
+            return ans
+
     def get_groups(self):
         '''
         returns a list of [group_id, group_name, group_link]
@@ -88,8 +106,7 @@ class sqlcrawler:
         ans = self.cursor.fetchall()
         return ans
 
-    def flip_subscribe(self, user_id, group_name):
-        group_id = self.get_group_id_by_name(group_name)
+    def flip_subscribe(self, user_id, group_id):
         self.cursor.execute(
             f"SELECT * from links WHERE group_id = {group_id} AND user_id = {user_id}")
         data = self.cursor.fetchone()
