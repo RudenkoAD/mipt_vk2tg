@@ -14,12 +14,6 @@ def exist_bigger_element(list_: list[int], element: int):
             return True
     return False
 
-def get_photos_links(attachments: list[dict]) -> list[str] | None:
-    """:param attachments: VK api response - list of dicts. Each dict is attachment.
-    :return: list of photos links or None if there is no photos"""
-    if attachments is None or len(attachments) == 0:
-        return None
-    return [attachment["photo"]["sizes"][-1]["url"] for attachment in attachments if attachment["type"] == "photo"]
 
 class vkfetcher:
   def __init__(self, vk_token: str = vk_config.access_token, dbmanager=sqlcrawler()):
