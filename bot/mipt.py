@@ -134,24 +134,6 @@ def setup_fetchers(job_queue, bot, dbmanager):
   logger.info("ended setup_fetchers")
 
 
-'''
-def setup_fetcher_inside_thread(iteration_delay, telegram_token):
-  thread = threading.Thread(target=setup_fetcher,
-                            args=(iteration_delay, telegram_token),
-                            daemon=True)
-  thread.start()
-  return thread
-
-
-def setup_fetcher(it_delay, telegram_token):
-  bot = Bot(telegram_token)
-  dbmanager = sqlcrawler()
-  while True:
-    asyncio.run(get_and_fetch_all(bot, dbmanager))
-    sleep(it_delay)
-'''
-
-
 #helpers
 def id(folder_name):
   return dbmanager.get_folder_id_by_name(folder_name)
@@ -169,10 +151,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
               for id, folder in folders]
 
   await update.message.reply_text(
-    '''Привет, перед тобой бот который помогает аггрегировать все паблики, связанные с мфти в одном месте. 
-    Сейчас бот на очень ранней стадии, поэтому в нем могут встречаться баги. Кроме того, сейчас в боте далеко не все важные паблики. Про многие я могу даже не знать. 
-    Поэтому про любые ошибки, пропущенные паблики, или просто свои пожелания для бота вы можете написать мне командой /contact.
-    Время реакции бота - порядка нескольких секунд, пожалуйста, проявите терпение.''',
+    '''
+    Привет, перед тобой бот который помогает аггрегировать все паблики, связанные с мфти в одном месте.
+    Просто выбери в папках ниже те группы что тебя интересуют, и нажми на них.
+    Бот будет пересылать тебе все посты из групп которые отмечены ✅
+    ''',
     reply_markup=InlineKeyboardMarkup(keyboard))
 
 
