@@ -6,7 +6,7 @@ from bot.logger import setup_logger
 log = setup_logger("vk")
 
 
-def exist_bigger_element(list_: list[int], element: int):
+def exist_bigger_element(list_, element):
   """Returns true if in list_ exists element bigger than element"""
   for list_el in list_:
     if list_el > element:

@@ -26,7 +26,7 @@ def get_post_link(post_id: int, group_id: int):
   return link
 
 
-def get_photos_links(attachments: list[dict]) -> list[str] | None:
+def get_photos_links(attachments):
   """:param attachments: VK api response - list of dicts. Each dict is attachment.
     :return: list of photos links or None if there is no photos"""
   if attachments is None or len(attachments) == 0:
