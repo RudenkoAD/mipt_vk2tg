@@ -65,6 +65,10 @@ class sqlcrawler:
     else:
       return ans
 
+  def delete_user(self, user_id):
+    requeststring = f"DELETE * from links where user_id = {user_id}"
+    self.execute(requeststring)
+    
   def get_parent(self, folder_name):
     self.execute(
       f"SELECT parent_name from folders where folder_name = '{folder_name}'")

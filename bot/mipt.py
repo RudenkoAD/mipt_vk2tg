@@ -76,10 +76,13 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
       await asyncio.sleep(e.retry_after + 1)
     except Forbidden:
       logger.debug(f"user with id {chat_id} has blocked us")
+      dbmanager.remove_user(chat_id)
       post_not_sent = False
     except NetworkError as e:
       logger.error(f"Network error")
-      await asyncio.sleep(1)
+      await asyncio.sleep(10)
+      await send_message(bot, chat_id, caption, media)
+      return
 
 
 async def make_post(bot: Bot, channel_id, group_name, post):
