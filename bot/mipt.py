@@ -78,9 +78,7 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
       logger.debug(f"user with id {chat_id} has blocked us")
       post_not_sent = False
     except NetworkError as e:
-      a = caption.split('\n')[0]
-      logger.error(f"Network error from group {a}, waiting for a second")
-      logger.error(f"{e.args}")
+      logger.error(f"Network error")
       await asyncio.sleep(1)
 
 
@@ -124,7 +122,7 @@ async def get_and_fetch_one(context):
 def setup_fetchers(job_queue, bot, dbmanager):
   logger.info("started setup_fetchers")
   starttime = datetime.datetime.now()
-  d = datetime.timedelta(seconds=4)
+  d = datetime.timedelta(seconds=4.5)
   num = 0
   for group_id, group_name, link in dbmanager.get_groups():
     time_to_first = num * d + starttime - datetime.datetime.now()
