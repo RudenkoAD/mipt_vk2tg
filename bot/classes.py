@@ -8,20 +8,4 @@ class Link:
         self.post_id = postid
         self.user_id = userid
 
-class User:
-    user_id:int
-    paid: bool
-
-    def __init__(self, user_id:int, paid:bool) -> None:
-        self.user_id = user_id
-        self.paid = paid
-
-    @property
-    def max_links(self):
-        return 5 if self.paid else 1
-    
-    @property
-    def check_rate(self):
-        #returns the time period (in seconds) between the checks of the user's link posts
-        return 10*60 if self.paid else 60*60
 

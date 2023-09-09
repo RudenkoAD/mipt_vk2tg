@@ -24,7 +24,8 @@ class sqlcrawler:
     self.conn.autocommit = True
     self.cursor = self.conn.cursor(cursor_factory=DictCursor)
     logger.debug("reconnected to database")
-
+  
+  #main function
   def execute(self, string):
     finished = False
     while not finished:
@@ -33,7 +34,9 @@ class sqlcrawler:
         finished = True
       except:
         self.reconnect()
-
+  
+  #getters
+  
   def get_post_id(self, group_id):
     self.execute(f"SELECT post_id from groups where group_id = {group_id}")
     post_id = self.cursor.fetchone()
@@ -41,20 +44,6 @@ class sqlcrawler:
       return post_id["post_id"]
     except:
       return None
-
-  def update_post_id(self, group_id, post_id):
-    self.execute(
-      f"UPDATE groups SET post_id = {post_id} WHERE group_id = {group_id}")
-
-  def is_subscribed(self, user_id, group_name):
-    group_id = self.get_group_id_by_name(group_name)
-    self.execute(
-      f"SELECT active from links where group_id = {group_id} AND user_id = {user_id}"
-    )
-    ans = self.cursor.fetchone()
-    if ans is None:
-      return False
-    return ans["active"]
 
   def get_group_id_by_name(self, group_name):
     requeststring = f"SELECT group_id from groups where group_name = '{group_name}'"
@@ -65,10 +54,11 @@ class sqlcrawler:
     else:
       return ans
 
-  def delete_user(self, user_id):
-    requeststring = f"DELETE * from links where user_id = {user_id}"
+  def get_all_users(self):
+    requeststring = f"SELECT DISTINCT user_id from links where active = TRUE"
     self.execute(requeststring)
-    
+    logger.info(f"fetched all users")
+
   def get_parent(self, folder_name):
     self.execute(
       f"SELECT parent_name from folders where folder_name = '{folder_name}'")
@@ -137,6 +127,43 @@ class sqlcrawler:
     ans = self.cursor.fetchall()
     return ans
 
+  def get_subscribers(self, group_id):
+    self.execute(
+      f"SELECT user_id from links where group_id = {group_id} AND active = True"
+    )
+    ans = self.cursor.fetchall()
+    return [data[0] for data in ans]
+
+  def is_subscribed(self, user_id, group_name):
+    group_id = self.get_group_id_by_name(group_name)
+    self.execute(
+      f"SELECT active from links where group_id = {group_id} AND user_id = {user_id}"
+    )
+    ans = self.cursor.fetchone()
+    if ans is None:
+      return False
+    return ans["active"]
+  
+  def get_message_from_queue(self):
+    requeststring = f"SELECT * FROM queue LIMIT 1"
+    self.execute(requeststring)
+    return self.cursor.fetchone()
+  
+  #setters
+
+  def put_message_into_queue(self, chat_id, caption, media=None):
+    requeststring = f"INSERT INTO queue (chat_id, caption, media) VALUES {chat_id}, {caption}, {media}"
+    self.execute(requeststring)
+
+  def update_post_id(self, group_id, post_id):
+    self.execute(
+      f"UPDATE groups SET post_id = {post_id} WHERE group_id = {group_id}")
+
+  def delete_user(self, user_id):
+    requeststring = f"DELETE * from links where user_id = {user_id}"
+    self.execute(requeststring)
+    logger.info(f"deleted user {user_id}")
+    
   def flip_subscribe(self, user_id, group_id):
     self.execute(
       f"SELECT * from links WHERE group_id = {group_id} AND user_id = {user_id}"
@@ -150,13 +177,9 @@ class sqlcrawler:
       self.execute(
         f"INSERT into links (user_id, group_id, active) VALUES ({user_id}, {group_id}, {True})"
       )
+    logger.info(f"flipped the subscription of user {user_id} for group {group_id}")
 
-  def get_subscribers(self, group_id):
-    self.execute(
-      f"SELECT user_id from links where group_id = {group_id} AND active = True"
-    )
-    ans = self.cursor.fetchall()
-    return [data[0] for data in ans]
+  #destructor
 
   def __del__(self):
     self.cursor.close()
