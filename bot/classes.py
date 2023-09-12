@@ -1,27 +1,28 @@
+from dataclasses import dataclass
+
+@dataclass
+class Group:
+    group_id: int
+    group_name: str
+    group_link: str
+    post_id: int
+    folder: str
+
+@dataclass
+class Folder:
+    folder_id: int
+    folder_name: str
+    parent_name: str
+
+@dataclass
 class Link:
-    vk_id:int
-    tg_id:int
-    last_post:int
-    def __init__(self, vkid:int, tgid:int, userid:int, postid:int=None) -> None:
-        self.vk_id = vkid
-        self.tg_id = tgid
-        self.post_id = postid
-        self.user_id = userid
+    user_id: int
+    group_id: int
+    active: bool
 
-class User:
-    user_id:int
-    paid: bool
-
-    def __init__(self, user_id:int, paid:bool) -> None:
-        self.user_id = user_id
-        self.paid = paid
-
-    @property
-    def max_links(self):
-        return 5 if self.paid else 1
-    
-    @property
-    def check_rate(self):
-        #returns the time period (in seconds) between the checks of the user's link posts
-        return 10*60 if self.paid else 60*60
-
+@dataclass
+class QueueMessage:
+    message_id: int
+    chat_id: int
+    caption: str
+    media: str = None

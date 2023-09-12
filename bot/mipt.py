@@ -4,12 +4,13 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import CommandHandler, CallbackQueryHandler  #upm package(python-telegram-bot)
 from telegram.error import RetryAfter, BadRequest, NetworkError, Forbidden  #upm package(python-telegram-bot)
 from telegram.ext import ApplicationBuilder, ContextTypes  #upm package(python-telegram-bot)
-from bot.vkworker import vkfetcher
-from bot.sqlworker import sqlcrawler
-from bot.logger import setup_logger
-from bot.secrets import TG_CREATOR_ID, TG_TOKEN
+from vkworker import vkfetcher
+from sqliteworker import sqlcrawler
+from logger import setup_logger
+from secrets import TG_CREATOR_ID, TG_TOKEN
 import asyncio
 from time import sleep
+import json
 import datetime
 #instantiate managers
 dbmanager = sqlcrawler()
@@ -55,6 +56,20 @@ def get_message_text(group_name, post: dict, it: int = 0, max_it: int = None):
 
   return f"От {group_name}:\n{post['text']}\n{get_post_link(post['id'], post['owner_id'])}", True
 
+async def put_message_into_queue(chat_id, caption, media=None):
+  media = json.dumps(media)
+  dbmanager.put_message_into_queue(chat_id, caption, media)
+
+async def send_message_from_queue(context):
+  message = dbmanager.get_message_from_queue()
+  if message:
+    if message.media is not None:
+      media = [InputMediaPhoto(url) for url in  json.loads(message.media)]
+    await send_message(context.bot, chat_id=message.chat_id, caption=message.caption, media=media)
+    logger.info(f"sent post from queue to user {message.chat_id}")
+    dbmanager.del_message_from_queue(message.message_id)
+  else:
+    logger.info("no messages in queue")
 
 async def send_message(bot: Bot, chat_id, caption, media=None):
   post_not_sent = True
@@ -82,22 +97,20 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
       logger.error(f"Network error")
       await asyncio.sleep(10)
       await send_message(bot, chat_id, caption, media)
-      return
-
+      post_not_sent = False
 
 async def make_post(bot: Bot, channel_id, group_name, post):
   post_text, finished = get_message_text(group_name, post)
-  image_urls = get_photos_links(post["attachments"])
-  if image_urls is None:
-    logger.debug("found no photos in attachments")
-    await send_message(bot, channel_id, post_text)
+  media = get_photos_links(post["attachments"])
+  if media is None:
+    await put_message_into_queue(channel_id, post_text)
+    logger.debug(f"put message into queue for user {channel_id}")
   else:
-    media = [InputMediaPhoto(url) for url in image_urls]
     if len(media) > 10:
       media = media[:10]
-    await send_message(bot, channel_id, post_text, media)
+    await put_message_into_queue(channel_id, post_text, media)
+    logger.debug(f"put message into queue for user {channel_id}")
   if not finished: await make_post(bot, channel_id, group_name, post)
-
 
 async def get_and_fetch_all(bot, dbmanager):
   logger.debug("starting the get_and_fetch_all")
@@ -108,19 +121,21 @@ async def get_and_fetch_all(bot, dbmanager):
       for user_id in dbmanager.get_subscribers(group_id):
         await make_post(bot, user_id, group_name, post)
 
-
 async def get_and_fetch_one(context):
   bot = context.bot
   group_id = context.job.data
-  logger.debug(f"fetching from group_id = {group_id}")
-  posts = vkmanager.get_new_posts(vk_id=group_id)
-  group_name = dbmanager.get_group_name_by_id(group_id)
-  for post in reversed(posts):
-    logger.debug(f"posting post: {get_post_link(post['id'], group_id)}")
-    for user_id in dbmanager.get_subscribers(group_id):
-      await make_post(bot, user_id, group_name, post)
-  logger.debug(f"finished fetching from group_id = {group_id}")
-
+  try:
+    logger.debug(f"fetching from group_id = {group_id}")
+    posts = vkmanager.get_new_posts(vk_id=group_id)
+    group_name = dbmanager.get_group_name_by_id(group_id)
+    for post in reversed(posts):
+      logger.debug(f"starting make_post: {get_post_link(post['id'], group_id)}")
+      for user_id in dbmanager.get_subscribers(group_id):
+        await make_post(bot, user_id, group_name, post)
+      dbmanager.update_post_id(group_id, post["id"])
+    logger.debug(f"finished fetching from group_id = {group_id}")
+  except Exception as e:
+    logger.info(f"fetching from group_id = {group_id} failed: {e.args}")
 
 def setup_fetchers(job_queue, bot, dbmanager):
   logger.info("started setup_fetchers")
@@ -141,12 +156,11 @@ def setup_fetchers(job_queue, bot, dbmanager):
 def id(folder_name):
   return dbmanager.get_folder_id_by_name(folder_name)
 
-
 def name(folder_id):
   return dbmanager.get_folder_name_by_id(folder_id)
 
 
-# Commands for the main menu
+# Commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
   folders: list[str] = dbmanager.get_folders()
   # Create the keyboard layout
@@ -155,12 +169,32 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
   await update.message.reply_text(
     '''
-    Привет, перед тобой бот который помогает аггрегировать все паблики, связанные с мфти в одном месте.
-    Просто выбери в папках ниже те группы что тебя интересуют, и нажми на них.
-    Бот будет пересылать тебе все посты из групп которые отмечены ✅
+Привет, перед тобой бот который помогает аггрегировать все паблики, связанные с мфти в одном месте.
+Просто выбери в папках ниже те группы что тебя интересуют, и нажми на них.
+Бот будет пересылать тебе все посты из групп которые отмечены ✅
     ''',
     reply_markup=InlineKeyboardMarkup(keyboard))
 
+async def announce(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  if update.effective_user.id==TG_CREATOR_ID:
+    text = "Объявление от адинистрации бота!\n"+' '.join(context.args)
+    for user_id in dbmanager.get_all_users():
+      await send_message(context.bot, user_id, text, None)
+  else:
+    logger.info(f"denied use of /announce to user_id = {update.effective_user.id}")
+    return
+  
+async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  if context.args == []:
+    await context.bot.send_message(
+      chat_id=update.effective_chat.id,
+      text="Пожалуйста используйте эту команду с аргументом:\n/contact <ваш текст>")
+  else:
+    await context.bot.send_message(chat_id=TG_CREATOR_ID,
+                                   text="@" + update.effective_user.username +
+                                   ": " + " ".join(context.args))
+    await context.bot.send_message(chat_id=update.effective_chat.id,
+                                   text="Передали все что вы написали")
 
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
   query = update.callback_query
@@ -174,7 +208,6 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                   reply_markup=InlineKeyboardMarkup(keyboard))
   except Exception as e:
     logger.error(e)
-
 
 async def answer_query_if_not_expired(query):
   try:
@@ -201,7 +234,7 @@ async def folder(update: Update, context: ContextTypes.DEFAULT_TYPE):
   pageupbutton = InlineKeyboardButton(
     ">", callback_data=f"F_{folder_id}_{folder_page+1}")
   backbutton = InlineKeyboardButton(
-    "Меню", callback_data="MENU") if parent is None else InlineKeyboardButton(
+    "Назад", callback_data="MENU") if parent is None else InlineKeyboardButton(
       "Назад", callback_data=f"F_{id(parent)}_0")
 
   keyboard = \
@@ -223,7 +256,6 @@ async def folder(update: Update, context: ContextTypes.DEFAULT_TYPE):
   except Exception as e:
     logger.error(e)
 
-
 async def group(update: Update, context: ContextTypes.DEFAULT_TYPE):
   query = update.callback_query
   user_id = update.effective_user.id
@@ -243,7 +275,7 @@ async def group(update: Update, context: ContextTypes.DEFAULT_TYPE):
   pageupbutton = InlineKeyboardButton(
     ">", callback_data=f"F_{folder_id}_{folder_page+1}")
   backbutton = InlineKeyboardButton(
-    "Меню", callback_data="MENU") if parent is None else InlineKeyboardButton(
+    "Назад", callback_data="MENU") if parent is None else InlineKeyboardButton(
       "Назад", callback_data=f"F_{id(parent)}_0")
 
   keyboard = [[
@@ -269,32 +301,21 @@ async def group(update: Update, context: ContextTypes.DEFAULT_TYPE):
   except Exception as e:
     logger.error(e)
 
-
-async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
-  if context.args == []:
-    await context.bot.send_message(
-      chat_id=update.effective_chat.id,
-      text=
-      "Пожалуйста используйте эту команду с аргументом:\n/contact <ваш текст>")
-  else:
-    await context.bot.send_message(chat_id=TG_CREATOR_ID,
-                                   text="@" + update.effective_user.username +
-                                   ": " + " ".join(context.args))
-    await context.bot.send_message(chat_id=update.effective_chat.id,
-                                   text="Передали все что вы написали")
-
-
 def main():
+  print("starting")
   application = ApplicationBuilder().token(TG_TOKEN).build()
   job_queue = application.job_queue
   logger.info("adding handlers")
   application.add_handler(CommandHandler('start', start))
   application.add_handler(CommandHandler('contact', contact))
+  application.add_handler(CommandHandler('announce', announce))
   application.add_handler(CallbackQueryHandler(menu, pattern="^MENU$"))
   application.add_handler(CallbackQueryHandler(folder, pattern="^F"))
   application.add_handler(CallbackQueryHandler(group, pattern="^G"))
 
   setup_fetchers(job_queue, application.bot, dbmanager)
+  job_queue.run_repeating(send_message_from_queue,
+                            interval=60)
   logger.info("starting app")
   application.run_polling(allowed_updates=Update.ALL_TYPES)
   logger.info("ended app")

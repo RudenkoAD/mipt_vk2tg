@@ -1,0 +1,6 @@
+folders.csv
+folders.txt
+groups.txt
+bot/__pycache__/**
+*.log
+secrets.py
