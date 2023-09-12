@@ -1,11 +1,28 @@
+from dataclasses import dataclass
+
+@dataclass
+class Group:
+    group_id: int
+    group_name: str
+    group_link: str
+    post_id: int
+    folder: str
+
+@dataclass
+class Folder:
+    folder_id: int
+    folder_name: str
+    parent_name: str
+
+@dataclass
 class Link:
-    vk_id:int
-    tg_id:int
-    last_post:int
-    def __init__(self, vkid:int, tgid:int, userid:int, postid:int=None) -> None:
-        self.vk_id = vkid
-        self.tg_id = tgid
-        self.post_id = postid
-        self.user_id = userid
+    user_id: int
+    group_id: int
+    active: bool
 
-
+@dataclass
+class QueueMessage:
+    message_id: int
+    chat_id: int
+    caption: str
+    media: str = None

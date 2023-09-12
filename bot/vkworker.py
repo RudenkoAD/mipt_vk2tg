@@ -1,7 +1,7 @@
 import vk
-from bot.secrets import VK_ACCESS_TOKEN
-from bot.sqlworker import sqlcrawler
-from bot.logger import setup_logger
+from secrets import VK_ACCESS_TOKEN
+from sqliteworker import sqlcrawler
+from logger import setup_logger
 
 log = setup_logger("vk")
 
@@ -35,16 +35,11 @@ class vkfetcher:
                                     offset=5 * i)["items"]
       new_posts_ids = [post["id"] for post in new_posts]
       posts += new_posts
-      if not exist_bigger_element(new_posts_ids, post_id):
+      if not exist_bigger_element(new_posts_ids, post_id):#дошли до последнего нового поста, в очередном батче новых нету
         posts = [p for p in posts if p["id"] > post_id]
-        if len(posts) != 0:
-          post_id = posts[0]["id"]
-          log.info(f"New last post id for {vk_id} is {post_id}")
-        else:
-          log.info(f"No new posts found for {vk_id}")
-        self.dbmanager.update_post_id(vk_id, post_id)
+        log.info(f"found new posts for {vk_id}" if len(posts)!=0 else f"No new posts found for {vk_id}")
         return posts
-    log.error("Too many posts found for {self.vk_id}. Maybe something wrong")
+    log.error(f"Too many posts found for {vk_id}. Maybe something wrong")
     raise ValueError("Too many posts found")
 
 
