@@ -63,11 +63,10 @@ async def put_message_into_queue(chat_id, caption, media=None):
 async def send_message_from_queue(context):
   message = dbmanager.get_message_from_queue()
   if message is not None:
-    if message.media!="null":
-      try:
-        media = [InputMediaPhoto(url) for url in  json.loads(message.media)]
-      except:
-        logger.error(message.media)
+    try:
+      media = [InputMediaPhoto(url) for url in  json.loads(message.media)]
+    except:
+      media = None
     await send_message(context.bot, chat_id=message.chat_id, caption=message.caption, media=media)
     logger.info(f"sent post from queue to user {message.chat_id}")
     dbmanager.del_message_from_queue(message.message_id)
