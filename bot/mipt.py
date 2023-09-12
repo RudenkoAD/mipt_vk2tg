@@ -63,7 +63,7 @@ async def put_message_into_queue(chat_id, caption, media=None):
 async def send_message_from_queue(context):
   message = dbmanager.get_message_from_queue()
   if message is not None:
-    if message.media is not None:
+    if message.media!="null":
       try:
         media = [InputMediaPhoto(url) for url in  json.loads(message.media)]
       except:
