@@ -25,6 +25,9 @@ def parse_vk_post_text(post_text):
     return parsed_text
 
 # Example usage:
-vk_post_text = "Check out [id224339543|Романа Дрибаса]'s profile and [club35555742|Кейс-Клуб МФТИ]."
-parsed_text = parse_vk_post_text(vk_post_text)
-print(parsed_text)
+if __name__ == "__main__":
+  vk_post_text = """Приветствуем нового старосту третьекурсников — [id426956952|Савву Савенкова]! 
+  Напомним, что староста курса — это тот, кто представляет интересы всего потока. Теперь Савва доступен для решения любых организационных, но не только, вопросов. Он следит за работой старост всех групп и передает информацию от преподавателей.
+  Желаем успехов Савве!"""
+  parsed_text = parse_vk_post_text(vk_post_text)
+  print(parsed_text)

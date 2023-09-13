@@ -7,11 +7,11 @@ def setup_logger(name):
   logger.setLevel(logging.DEBUG)
 
   # Create a file handler and set its level to DEBUG
-  file_handler = logging.FileHandler(os.path.join("logs", f"{name}.log"))
+  file_handler = logging.FileHandler(os.path.join("logs", f"{name}.log"), mode = "w")
   file_handler.setLevel(logging.DEBUG)
 
   #create a all-in-one log:
-  file_handler_2 = logging.FileHandler(os.path.join("logs", "all.log"))
+  file_handler_2 = logging.FileHandler(os.path.join("logs", "all.log"), mode = "w")
   file_handler_2.setLevel(logging.DEBUG)
 
   # Create a stream handler and set its level to INFO

@@ -44,20 +44,20 @@ def get_photos_links(attachments):
 def get_message_text(group_name, post: dict, it: int = 0, max_it: int = None):
   """Returns text message to telegram channel
     :param post: VK api response    """
-  CAPTION_LEN = 950
+  CAPTION_LEN = 900
   if len(post["text"]) > CAPTION_LEN:
     if max_it is None:
       max_it = len(post["text"]) // CAPTION_LEN + 1
     it += 1
-    logger.info("post text was too long, cutting it down")
-    text = post["text"][:CAPTION_LEN] + f'\n({it}/{max_it})'
+    logger.info(f"post text was too long, cutting it into {max_it} parts, this is {it}/{max_it}")
+    text = parse_vk_post_text(post["text"][:CAPTION_LEN])+"...\n" + f'часть {it} из {max_it}'
     post["text"] = post["text"][CAPTION_LEN:]
 
     return f"От {group_name}:\n\
     {text}\n\
     Оригинальный пост:{get_post_link(post['id'], post['owner_id'])}", False
 
-  return f"От {group_name}:\n{post['text']}\nОригинальный пост:{get_post_link(post['id'], post['owner_id'])}", True
+  return f"От {group_name}:\n{parse_vk_post_text(post['text'])}\nОригинальный пост:{get_post_link(post['id'], post['owner_id'])}", True
 
 async def put_message_into_queue(chat_id, caption, media=None):
   media = json.dumps(media)
@@ -145,7 +145,7 @@ async def get_and_fetch_one(context):
 def setup_fetchers(job_queue, bot, dbmanager):
   logger.info("started setup_fetchers")
   starttime = datetime.datetime.now()
-  d = datetime.timedelta(seconds=4.5)
+  d = datetime.timedelta(seconds=1)
   num = 0
   for group_id, group_name, link in dbmanager.get_groups():
     time_to_first = num * d + starttime - datetime.datetime.now()
@@ -182,7 +182,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def announce(update: Update, context: ContextTypes.DEFAULT_TYPE):
   if update.effective_user.id==TG_CREATOR_ID:
-    text = "Объявление от адинистрации бота!\n"+' '.join(context.args)
+    text =update.message.text[10:]
     for user_id in dbmanager.get_all_users():
       await send_message(context.bot, user_id, text, None)
   else:
@@ -320,7 +320,7 @@ def main():
 
   setup_fetchers(job_queue, application.bot, dbmanager)
   job_queue.run_repeating(send_message_from_queue,
-                            interval=30)
+                            interval=10)
   logger.info("starting app")
   application.run_polling(allowed_updates=Update.ALL_TYPES)
   logger.info("ended app")
