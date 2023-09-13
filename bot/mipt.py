@@ -12,6 +12,7 @@ import asyncio
 from time import sleep
 import json
 import datetime
+from vk_post_parser import parse_vk_post_text
 #instantiate managers
 dbmanager = sqlcrawler()
 vkmanager = vkfetcher(dbmanager=dbmanager)
@@ -34,7 +35,8 @@ def get_photos_links(attachments: list[dict]) -> list[str] | None:
     logger.debug("found no photos in attachments")
     return None
   return [
-    attachment["photo"]["sizes"][-1]["url"] for attachment in attachments
+    max(attachment['photo']['sizes'], key=lambda x: x['width'])['url']
+    for attachment in attachments
     if attachment["type"] == "photo"
   ]
 
@@ -42,19 +44,19 @@ def get_photos_links(attachments: list[dict]) -> list[str] | None:
 def get_message_text(group_name, post: dict, it: int = 0, max_it: int = None):
   """Returns text message to telegram channel
     :param post: VK api response    """
-  if len(post["text"]) > 2000:
+  if len(post["text"]) > 900:
     if max_it is None:
-      max_it = post["text"] // 2000 + 1
+      max_it = post["text"] // 900 + 1
     it += 1
     logger.info("post text was too long, cutting it down")
-    text = post["text"][:2000] + f'\n({it}/{max_it})'
-    post["text"] = post["text"][2000:]
+    text = parse_vk_post_text(post["text"][:900]) + f'\n({it}/{max_it})'
+    post["text"] = post["text"][900:]
 
     return f"От {group_name}:\n\
     {text}\n\
-    {get_post_link(post['id'], post['owner_id'])}", False
+    Оригинальный пост:{get_post_link(post['id'], post['owner_id'])}", False
 
-  return f"От {group_name}:\n{post['text']}\n{get_post_link(post['id'], post['owner_id'])}", True
+  return f"От {group_name}:\n{post['text']}\nОригинальный пост:{get_post_link(post['id'], post['owner_id'])}", True
 
 async def put_message_into_queue(chat_id, caption, media=None):
   media = json.dumps(media)
@@ -317,7 +319,7 @@ def main():
 
   setup_fetchers(job_queue, application.bot, dbmanager)
   job_queue.run_repeating(send_message_from_queue,
-                            interval=60)
+                            interval=30)
   logger.info("starting app")
   application.run_polling(allowed_updates=Update.ALL_TYPES)
   logger.info("ended app")
