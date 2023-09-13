@@ -12,6 +12,7 @@ import asyncio
 from time import sleep
 import json
 import datetime
+from vk_post_parser import parse_vk_post_text
 #instantiate managers
 dbmanager = sqlcrawler()
 vkmanager = vkfetcher(dbmanager=dbmanager)
@@ -34,7 +35,8 @@ def get_photos_links(attachments):
     logger.debug("found no photos in attachments")
     return None
   return [
-    attachment["photo"]["sizes"][-1]["url"] for attachment in attachments
+    max(attachment['photo']['sizes'], key=lambda x: x['width'])['url']
+    for attachment in attachments
     if attachment["type"] == "photo"
   ]
 
@@ -53,9 +55,9 @@ def get_message_text(group_name, post: dict, it: int = 0, max_it: int = None):
 
     return f"От {group_name}:\n\
     {text}\n\
-    {get_post_link(post['id'], post['owner_id'])}", False
+    Оригинальный пост:{get_post_link(post['id'], post['owner_id'])}", False
 
-  return f"От {group_name}:\n{post['text']}\n{get_post_link(post['id'], post['owner_id'])}", True
+  return f"От {group_name}:\n{post['text']}\nОригинальный пост:{get_post_link(post['id'], post['owner_id'])}", True
 
 async def put_message_into_queue(chat_id, caption, media=None):
   media = json.dumps(media)
