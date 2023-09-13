@@ -105,6 +105,10 @@ class sqlcrawler:
         # Add a corresponding deletion in any other relevant tables
         # e.g., if there are more tables with user references.
 
+    def delete_queue(self):
+        self.execute("DELETE FROM queue")
+
+
     def flip_subscribe(self, user_id, group_id):
         self.execute("SELECT * FROM links WHERE group_id = ? AND user_id = ?", (group_id, user_id))
         data = self.cursor.fetchone()
@@ -122,6 +126,6 @@ import json
 if __name__ == "__main__":
     db_path = 'database.sqlite'  # Provide the path to your SQLite database file
     crawler = sqlcrawler(db_path)
-    string = json.dumps(["https://test.com"])
-    crawler.put_message_into_queue("test", "ahahah", string)
-    # Use the SQLiteCrawler object to execute queries and perform database operations
+    confirm = input("are you sure you wanna delete queue?")
+    if confirm == "yes":
+        crawler.delete_queue()

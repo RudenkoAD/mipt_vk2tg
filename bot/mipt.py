@@ -42,13 +42,14 @@ def get_photos_links(attachments):
 def get_message_text(group_name, post: dict, it: int = 0, max_it: int = None):
   """Returns text message to telegram channel
     :param post: VK api response    """
-  if len(post["text"]) > 2000:
+  CAPTION_LEN = 950
+  if len(post["text"]) > CAPTION_LEN:
     if max_it is None:
-      max_it = post["text"] // 2000 + 1
+      max_it = len(post["text"]) // CAPTION_LEN + 1
     it += 1
     logger.info("post text was too long, cutting it down")
-    text = post["text"][:2000] + f'\n({it}/{max_it})'
-    post["text"] = post["text"][2000:]
+    text = post["text"][:CAPTION_LEN] + f'\n({it}/{max_it})'
+    post["text"] = post["text"][CAPTION_LEN:]
 
     return f"От {group_name}:\n\
     {text}\n\
@@ -96,7 +97,7 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
       dbmanager.remove_user(chat_id)
       post_not_sent = False
     except NetworkError as e:
-      logger.error(f"Network error")
+      logger.error(f"Network error: {e}")
       await asyncio.sleep(10)
       await send_message(bot, chat_id, caption, media)
       post_not_sent = False
@@ -317,7 +318,7 @@ def main():
 
   setup_fetchers(job_queue, application.bot, dbmanager)
   job_queue.run_repeating(send_message_from_queue,
-                            interval=60)
+                            interval=30)
   logger.info("starting app")
   application.run_polling(allowed_updates=Update.ALL_TYPES)
   logger.info("ended app")
