@@ -12,7 +12,7 @@ import asyncio
 from time import sleep
 import json
 import datetime
-from vk_post_parser import parse_vk_post_text
+from vk_post_parser import get_post_link, get_message_texts, get_photos_links
 #instantiate managers
 dbmanager = sqlcrawler()
 vkmanager = vkfetcher(dbmanager=dbmanager)
@@ -21,47 +21,11 @@ logger = setup_logger("mipt")
 CHECKMARK_EMOJI = "✅"
 CROSS_EMOJI = "❌"
 
-
-def get_post_link(post_id: int, group_id: int):
-  """Returns link to post in VK"""
-  link = f"https://vk.com/wall{group_id}_{post_id}"
-  return link
-
-
-def get_photos_links(attachments):
-  """:param attachments: VK api response - list of dicts. Each dict is attachment.
-    :return: list of photos links or None if there is no photos"""
-  if attachments is None or len(attachments) == 0:
-    logger.debug("found no photos in attachments")
-    return None
-  return [
-    max(attachment['photo']['sizes'], key=lambda x: x['width'])['url']
-    for attachment in attachments
-    if attachment["type"] == "photo"
-  ]
-
-
-def get_message_text(group_name, post: dict, it: int = 0, max_it: int = None):
-  """Returns text message to telegram channel
-    :param post: VK api response    """
-  CAPTION_LEN = 900
-  if len(post["text"]) > CAPTION_LEN:
-    if max_it is None:
-      max_it = len(post["text"]) // CAPTION_LEN + 1
-    it += 1
-    logger.info(f"post text was too long, cutting it into {max_it} parts, this is {it}/{max_it}")
-    text = parse_vk_post_text(post["text"][:CAPTION_LEN])+"...\n" + f'часть {it} из {max_it}'
-    post["text"] = post["text"][CAPTION_LEN:]
-
-    return f"От {group_name}:\n\
-    {text}\n\
-    Оригинальный пост:{get_post_link(post['id'], post['owner_id'])}", False
-
-  return f"От {group_name}:\n{parse_vk_post_text(post['text'])}\nОригинальный пост:{get_post_link(post['id'], post['owner_id'])}", True
-
-async def put_message_into_queue(chat_id, caption, media=None):
+  
+async def put_message_into_queue(user_ids, caption, media=None):
   media = json.dumps(media)
-  dbmanager.put_message_into_queue(chat_id, caption, media)
+  for user_id in user_ids:
+    dbmanager.put_message_into_queue(user_id, caption, media)
 
 async def send_message_from_queue(context):
   message = dbmanager.get_message_from_queue()
@@ -81,7 +45,7 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
   while post_not_sent:
     try:
       if (media is None) or (len(media) == 0):
-        await bot.send_message(chat_id=chat_id, text=caption)
+        await bot.send_message(chat_id=chat_id, text=caption, parse_mode="HTML")
       else:
         await bot.send_media_group(chat_id=chat_id,
                                    media=media,
@@ -104,18 +68,18 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
       await send_message(bot, chat_id, caption, media)
       post_not_sent = False
 
-async def make_post(bot: Bot, channel_id, group_name, post):
-  post_text, finished = get_message_text(group_name, post)
+async def make_post(bot: Bot, user_ids, group_name, post):
+  post_texts = get_message_texts(group_name, post)
   media = get_photos_links(post["attachments"])
-  if media is None:
-    await put_message_into_queue(channel_id, post_text)
-    logger.debug(f"put message into queue for user {channel_id}")
-  else:
-    if len(media) > 10:
-      media = media[:10]
-    await put_message_into_queue(channel_id, post_text, media)
-    logger.debug(f"put message into queue for user {channel_id}")
-  if not finished: await make_post(bot, channel_id, group_name, post)
+  for post_text in post_texts:
+    if media is None:
+      await put_message_into_queue(user_ids, post_text)
+      logger.debug(f"put message into queue for users {user_ids}")
+    else:
+      if len(media) > 10:
+        media = media[:10]
+      await put_message_into_queue(user_ids, post_text, media)
+      logger.debug(f"put message into queue for users {user_ids}")
 
 async def get_and_fetch_all(bot, dbmanager):
   logger.debug("starting the get_and_fetch_all")
@@ -135,8 +99,8 @@ async def get_and_fetch_one(context):
     group_name = dbmanager.get_group_name_by_id(group_id)
     for post in reversed(posts):
       logger.debug(f"starting make_post: {get_post_link(post['id'], group_id)}")
-      for user_id in dbmanager.get_subscribers(group_id):
-        await make_post(bot, user_id, group_name, post)
+      user_ids = dbmanager.get_subscribers(group_id)
+      await make_post(bot, user_ids, group_name, post)
       dbmanager.update_post_id(group_id, post["id"])
     logger.debug(f"finished fetching from group_id = {group_id}")
   except Exception as e:
