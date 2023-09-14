@@ -1,5 +1,15 @@
-import logging, os.path
+import logging
+import os
 
+def clear_logs():
+  folder = os.path.join("logs")
+  for filename in os.listdir(folder):
+      file_path = os.path.join(folder, filename)
+      try:
+          if os.path.isfile(file_path) or os.path.islink(file_path):
+              os.remove(file_path)
+      except Exception as e:
+          print('Failed to delete %s. Reason: %s' % (file_path, e))
 
 def setup_logger(name):
   # Create a logger instance
@@ -7,12 +17,16 @@ def setup_logger(name):
   logger.setLevel(logging.DEBUG)
 
   # Create a file handler and set its level to DEBUG
-  file_handler = logging.FileHandler(os.path.join("logs", f"{name}.log"), mode = "w")
+  file_handler = logging.FileHandler(os.path.join("logs", f"{name}.log"))
   file_handler.setLevel(logging.DEBUG)
 
   #create a all-in-one log:
-  file_handler_2 = logging.FileHandler(os.path.join("logs", "all.log"), mode = "w")
+  file_handler_2 = logging.FileHandler(os.path.join("logs", "all.log"))
   file_handler_2.setLevel(logging.DEBUG)
+
+  #create a all-in-one log:
+  file_handler_3 = logging.FileHandler(os.path.join("logs", "errors.log"))
+  file_handler_3.setLevel(logging.DEBUG)
 
   # Create a stream handler and set its level to INFO
   stream_handler = logging.StreamHandler()
