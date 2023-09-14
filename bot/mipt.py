@@ -152,6 +152,16 @@ async def announce(update: Update, context: ContextTypes.DEFAULT_TYPE):
   else:
     logger.info(f"denied use of /announce to user_id = {update.effective_user.id}")
     return
+
+async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  if update.effective_user.id==TG_CREATOR_ID:
+    users = dbmanager.get_all_users()
+    text = "\n".join([f"[{user_id}](tg://user?id={user_id})" for user_id in users])
+    await send_message(context.bot, TG_CREATOR_ID, text, None)
+  else:
+    logger.info(f"denied use of /list_users to user_id = {update.effective_user.id}")
+    return
+
   
 async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
   if context.args == []:
@@ -278,6 +288,7 @@ def main():
   application.add_handler(CommandHandler('start', start))
   application.add_handler(CommandHandler('contact', contact))
   application.add_handler(CommandHandler('announce', announce))
+  application.add_handler(CommandHandler('list', list_users))
   application.add_handler(CallbackQueryHandler(menu, pattern="^MENU$"))
   application.add_handler(CallbackQueryHandler(folder, pattern="^F"))
   application.add_handler(CallbackQueryHandler(group, pattern="^G"))
