@@ -4,9 +4,10 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
 from telegram.ext import CommandHandler, CallbackQueryHandler  #upm package(python-telegram-bot)
 from telegram.error import RetryAfter, BadRequest, NetworkError, Forbidden  #upm package(python-telegram-bot)
 from telegram.ext import ApplicationBuilder, ContextTypes  #upm package(python-telegram-bot)
+from logger import setup_logger, clear_logs
+clear_logs()
 from vkworker import vkfetcher
 from sqliteworker import sqlcrawler
-from logger import setup_logger, clear_logs
 from secrets import TG_CREATOR_ID, TG_TOKEN
 import asyncio
 from time import sleep
@@ -281,7 +282,6 @@ async def group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.error(e)
 
 def main():
-  clear_logs()
   print("starting")
   application = ApplicationBuilder().token(TG_TOKEN).build()
   job_queue = application.job_queue
