@@ -199,7 +199,7 @@ async def answer_query_if_not_expired(query):
 #commands to handle bot navigation
 async def folder(update: Update, context: ContextTypes.DEFAULT_TYPE):
   query = update.callback_query
-  user_id = update.effective_user.id
+  user_id = update.effective_chat.id
   logger.debug(f"FOLDER for user_id = {user_id}")
   await answer_query_if_not_expired(query)
   folder_id = int(query.data.split("_")[1])
@@ -237,7 +237,7 @@ async def folder(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def group(update: Update, context: ContextTypes.DEFAULT_TYPE):
   query = update.callback_query
-  user_id = update.effective_user.id
+  user_id = update.effective_chat.id
   logger.debug(f"GROUP for user_id = {user_id}")
   await answer_query_if_not_expired(query)
   dbmanager.flip_subscribe(user_id, int(query.data.split("_")[2]))
