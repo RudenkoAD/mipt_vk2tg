@@ -225,7 +225,7 @@ async def folder(update: Update, context: ContextTypes.DEFAULT_TYPE):
   if len(data) > 5:
     if folder_page == 0:
       keyboard += [[pageupbutton]]
-    elif folder_page * 5 + 5 > len(data):
+    elif folder_page * 5 + 5 >= len(data):
       keyboard += [[pagedownbutton]]
     else:
       keyboard += [[pagedownbutton, pageupbutton]]
@@ -270,7 +270,7 @@ async def group(update: Update, context: ContextTypes.DEFAULT_TYPE):
   if len(data) > 5:
     if folder_page == 0:
       keyboard += [[pageupbutton]]
-    elif folder_page * 5 + 5 > len(data):
+    elif folder_page * 5 + 5 >= len(data):
       keyboard += [[pagedownbutton]]
     else:
       keyboard += [[pagedownbutton, pageupbutton]]
