@@ -16,38 +16,64 @@ def get_group_link(group_id: int):
   return link
 
 
-def get_photos_links(attachments):
+def get_video_link(attachment):
+  if attachment["type"] != "video":
+    return None
+  return f"https://vk.com/video{attachment['video']['owner_id']}_{attachment['video']['id']}"
+
+def get_photo_link(attachment):
+  if attachment["type"] != "photo":
+    return None
+  return max(attachment['photo']['sizes'], key=lambda x: x['width'])['url']
+
+def get_attachments_links(attachments):
   """:param attachments: VK api response - list of dicts. Each dict is attachment.
     :return: list of photos links or None if there is no photos"""
   if attachments is None or len(attachments) == 0:
     logger.debug("found no photos in attachments")
     return None
-  return [
-    max(attachment['photo']['sizes'], key=lambda x: x['width'])['url']
+  photos_links = [
+    get_photo_link(attachment)
     for attachment in attachments
     if attachment["type"] == "photo"
   ]
+  # videos_links = [
+  #   get_video_link(attachment)
+  #   for attachment in attachments
+  #   if (attachment.get("type", None) == "video") and (attachment.get("video", {}).get("platform", None) is None)
+  # ]
+  #print(photos_links, videos_links)
+  return photos_links# + videos_links
 
-def wrap_message_text(text, post, group_name, it, max_it):
+def wrap_message_text(text, post, group_name, begin:bool, end: bool):
   from_group_text =f'От <a href="{get_group_link(post["owner_id"])}">{group_name}</a>:' 
   post_link_text = f'<a href="{get_post_link(post["id"], post["owner_id"])}">Оригинальный пост</a>'
-  if(it==1 and max_it==1):
-    return f"{from_group_text}\n{text}\n{post_link_text}"
-  else:
-    return f"{from_group_text}\n{text}...\nчасть {it} из {max_it}\n{post_link_text}"
+  final_text = ""
+  if begin: final_text+=f"{from_group_text}\n"
+  final_text+=re.escape(text)
+  if end: final_text+=f"\n{post_link_text}"
+  return final_text
 
-
-def get_message_texts(group_name, post: dict):
+def get_message_texts(group_name, post: dict, has_attachments: bool):
   """Returns text message to telegram channel
     :param post: VK api response    """
   CAPTION_LEN = 900
-  max_it = len(post["text"])//CAPTION_LEN + 1
-  if max_it>1:
-    logger.info(f"post text was too long, cutting it into {max_it} parts")
+  POST_LEN = 3900
+  if len(post["text"])<=(CAPTION_LEN if has_attachments else POST_LEN):
+    text = parse_vk_post_text(post["text"])
+    text = wrap_message_text(text, post, group_name, begin = True, end=True)
+    return [text]
+  logger.debug(f"post text was too long, cutting it")
   text_list = []
-  for it in range(1, max_it+1):
-    text = parse_vk_post_text(post["text"][CAPTION_LEN*(it-1):CAPTION_LEN*(it)])
-    text = wrap_message_text(text, post, group_name, it, max_it)
+  split = CAPTION_LEN + post["text"][CAPTION_LEN:].find(" ")
+  text = parse_vk_post_text(post["text"][:split])
+  text = wrap_message_text(text, post, group_name, begin = True, end=False)
+  text_list.append(text)
+  N = (len(post["text"])-split)//POST_LEN + 1
+  for i in range(N):
+    end = True if i==N-1 else False
+    text = parse_vk_post_text(post["text"][split+POST_LEN*i:split+POST_LEN*(i+1)])
+    text = wrap_message_text(text, post, group_name, False, end)
     text_list.append(text)
   return text_list
 

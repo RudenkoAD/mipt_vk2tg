@@ -13,7 +13,7 @@ import asyncio
 from time import sleep
 import json
 import datetime
-from vk_post_parser import get_post_link, get_message_texts, get_photos_links
+from vk_post_parser import get_post_link, get_message_texts, get_attachments_links
 #instantiate managers
 dbmanager = sqlcrawler()
 vkmanager = vkfetcher(dbmanager=dbmanager)
@@ -69,11 +69,12 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
       await send_message(bot, chat_id, caption, media)
       post_not_sent = False
 
-async def make_post(bot: Bot, user_ids, group_name, post):
-  post_texts = get_message_texts(group_name, post)
-  media = get_photos_links(post["attachments"])
-  for post_text in post_texts:
-    if media is None:
+async def wrap_and_put_into_queue(user_ids, group_name, post):
+  media = get_attachments_links(post["attachments"])
+  has_attachments = media is not None
+  post_texts = get_message_texts(group_name, post, has_attachments)
+  for i, post_text in enumerate(post_texts):
+    if (not has_attachments) or (i>0):
       await put_message_into_queue(user_ids, post_text)
       logger.debug(f"put message into queue for users {user_ids}")
     else:
@@ -82,14 +83,6 @@ async def make_post(bot: Bot, user_ids, group_name, post):
       await put_message_into_queue(user_ids, post_text, media)
       logger.debug(f"put message into queue for users {user_ids}")
 
-async def get_and_fetch_all(bot, dbmanager):
-  logger.debug("starting the get_and_fetch_all")
-  for group_id, group_name, link in dbmanager.get_groups():
-    posts = vkmanager.get_new_posts(vk_id=group_id)
-    for post in reversed(posts):
-      logger.debug(f"posting post: {get_post_link(post['id'], group_id)}")
-      for user_id in dbmanager.get_subscribers(group_id):
-        await make_post(bot, user_id, group_name, post)
 
 async def get_and_fetch_one(context):
   bot = context.bot
@@ -97,17 +90,28 @@ async def get_and_fetch_one(context):
   try:
     logger.debug(f"fetching from group_id = {group_id}")
     posts = vkmanager.get_new_posts(vk_id=group_id)
-    group_name = dbmanager.get_group_name_by_id(group_id)
     for post in reversed(posts):
-      logger.debug(f"starting make_post: {get_post_link(post['id'], group_id)}")
-      user_ids = dbmanager.get_subscribers(group_id)
-      await make_post(bot, user_ids, group_name, post)
-      dbmanager.update_post_id(group_id, post["id"])
+      await handle_post(post)
     logger.debug(f"finished fetching from group_id = {group_id}")
   except Exception as e:
     logger.info(f"fetching from group_id = {group_id} failed: {e.args}")
 
-def setup_fetchers(job_queue, bot, dbmanager):
+async def handle_post(post, special_user_destination = None, special_group_name = None):
+  group_id = post["owner_id"]
+  logger.debug(f"starting make_post: {get_post_link(post['id'], group_id)}")
+  group_name = dbmanager.get_group_name_by_id(group_id) if special_group_name is None else special_group_name
+  user_ids = dbmanager.get_subscribers(group_id) if special_user_destination is None else special_user_destination
+  
+  await wrap_and_put_into_queue(user_ids, group_name, post)
+  
+  if post.get("copy_history", None) is not None:
+    for repost in post["copy_history"]:
+      await handle_post(repost, special_user_destination=user_ids, special_group_name = "репоста, прикрепленного к посту выше")#recursion if there is a repost inside this post
+    
+  dbmanager.update_post_id(group_id, post["id"])
+  
+
+def setup_fetchers(job_queue, dbmanager):
   logger.info("started setup_fetchers")
   starttime = datetime.datetime.now()
   d = datetime.timedelta(seconds=1)
@@ -163,7 +167,6 @@ async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"denied use of /list_users to user_id = {update.effective_user.id}")
     return
 
-  
 async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
   if context.args == []:
     await context.bot.send_message(
@@ -294,9 +297,9 @@ def main():
   application.add_handler(CallbackQueryHandler(folder, pattern="^F"))
   application.add_handler(CallbackQueryHandler(group, pattern="^G"))
 
-  setup_fetchers(job_queue, application.bot, dbmanager)
+  setup_fetchers(job_queue, dbmanager)
   job_queue.run_repeating(send_message_from_queue,
-                            interval=10)
+                            interval=5)
   logger.info("starting app")
   application.run_polling(allowed_updates=Update.ALL_TYPES)
   logger.info("ended app")
