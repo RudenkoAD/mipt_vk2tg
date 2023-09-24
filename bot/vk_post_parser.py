@@ -50,7 +50,7 @@ def wrap_message_text(text, post, group_name, begin:bool, end: bool):
   post_link_text = f'<a href="{get_post_link(post["id"], post["owner_id"])}">Оригинальный пост</a>'
   final_text = ""
   if begin: final_text+=f"{from_group_text}\n"
-  final_text+=re.escape(text)
+  final_text+= text
   if end: final_text+=f"\n{post_link_text}"
   return final_text
 
