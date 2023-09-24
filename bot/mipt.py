@@ -65,8 +65,8 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
       post_not_sent = False
     except NetworkError as e:
       logger.error(f"Network error: {e}")
-      send_message(bot, TG_CREATOR_ID, "АХАХ Я ОПЯТЬ СЛОМАЛСЯ", None)
-      await asyncio.sleep(10)
+      await send_message(bot, TG_CREATOR_ID, "АХАХ Я ОПЯТЬ СЛОМАЛСЯ", None)
+      await asyncio.sleep(1800)
       await send_message(bot, chat_id, caption, media)
       post_not_sent = False
 
