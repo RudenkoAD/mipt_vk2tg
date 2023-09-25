@@ -12,7 +12,7 @@ class Group:
 class Folder:
     folder_id: int
     folder_name: str
-    parent_name: str|None
+    parent_name: str = None
     folder_text: str = None
 
 @dataclass
