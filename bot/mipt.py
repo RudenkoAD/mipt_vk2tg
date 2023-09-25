@@ -14,6 +14,7 @@ from time import sleep
 import json
 import datetime
 from vk_post_parser import get_post_link, get_message_texts, get_attachments_links
+import text_storage
 #instantiate managers
 dbmanager = sqlcrawler()
 vkmanager = vkfetcher(dbmanager=dbmanager)
@@ -33,7 +34,7 @@ async def send_message_from_queue(context):
   if message is not None:
     try:
       media = [InputMediaPhoto(url) for url in  json.loads(message.media)]
-    except:
+    except Exception:
       media = None
     await send_message(context.bot, chat_id=message.chat_id, caption=message.caption, media=media)
     logger.info(f"sent post from queue to user {message.chat_id}")
@@ -100,7 +101,7 @@ async def get_and_fetch_one(context):
 async def handle_post(post, special_user_destination = None, special_group_name = None):
   group_id = post["owner_id"]
   logger.debug(f"starting make_post: {get_post_link(post['id'], group_id)}")
-  group_name = dbmanager.get_group_name_by_id(group_id) if special_group_name is None else special_group_name
+  group_name = dbmanager.get_group_by_id(group_id).group_name if special_group_name is None else special_group_name
   user_ids = dbmanager.get_subscribers(group_id) if special_user_destination is None else special_user_destination
   
   await wrap_and_put_into_queue(user_ids, group_name, post)
@@ -112,48 +113,36 @@ async def handle_post(post, special_user_destination = None, special_group_name 
   dbmanager.update_post_id(group_id, post["id"])
   
 
-def setup_fetchers(job_queue, dbmanager):
+def setup_fetchers(job_queue, dbmanager:sqlcrawler):
   logger.info("started setup_fetchers")
   starttime = datetime.datetime.now()
   d = datetime.timedelta(seconds=1)
   num = 0
-  for group_id, group_name, link in dbmanager.get_groups():
+  for group in dbmanager.get_groups():
     time_to_first = num * d + starttime - datetime.datetime.now()
     num += 1
     job_queue.run_repeating(get_and_fetch_one,
-                            data=group_id,
+                            data=group.group_id,
                             interval=60 * 15,
                             first=time_to_first)
   logger.info("ended setup_fetchers")
 
 
-#helpers
-def id(folder_name):
-  return dbmanager.get_folder_id_by_name(folder_name)
-
-def name(folder_id):
-  return dbmanager.get_folder_name_by_id(folder_id)
-
-
 # Commands
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-  folders: list[str] = dbmanager.get_folders()
+  folders = dbmanager.get_folders()
   # Create the keyboard layout
-  keyboard = [[InlineKeyboardButton(folder, callback_data=f"F_{id}_0")]
-              for id, folder in folders]
+  keyboard = [[InlineKeyboardButton(folder.folder_name, callback_data=f"F_{folder.folder_id}_0")]
+              for folder in folders]
 
   await update.message.reply_text(
-    '''
-Привет!
-Этот бот помогает собрать в одном месте посты от сообществ в ВК, связанных с МФТИ.
-Нажмите на папки, расположенные ниже, а затем на интересующие вас группы, после чего около них появится ✅. Бот будет пересылать все последующие посты от отмеченных групп. 
-    ''',
+    text_storage.start_menu_text,
     reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def announce(update: Update, context: ContextTypes.DEFAULT_TYPE):
   if update.effective_user.id==TG_CREATOR_ID:
     text =update.message.text[10:]
-    for user_id in dbmanager.get_all_users():
+    for user_id in dbmanager.get_all_user_ids():
       await send_message(context.bot, user_id, text, None)
   else:
     logger.info(f"denied use of /announce to user_id = {update.effective_user.id}")
@@ -161,7 +150,7 @@ async def announce(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
   if update.effective_user.id==TG_CREATOR_ID:
-    users = dbmanager.get_all_users()
+    users = dbmanager.get_all_user_ids()
     text = "\n".join([f"[{user_id}](tg://user?id={user_id})" for user_id in users])
     await send_message(context.bot, TG_CREATOR_ID, text, None)
   else:
@@ -183,12 +172,12 @@ async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
   query = update.callback_query
   await answer_query_if_not_expired(query)
-  folders: list[str] = dbmanager.get_folders(parent=None)
+  folders = dbmanager.get_folders(None)
   # Create the keyboard layout
-  keyboard = [[InlineKeyboardButton(folder, callback_data=f"F_{id}_0")]
-              for id, folder in folders]
+  keyboard = [[InlineKeyboardButton(folder.folder_name, callback_data=f"F_{folder.folder_id}_0")]
+              for folder in folders]
   try:
-    await query.edit_message_text(text=query.message.text,
+    await query.edit_message_text(text=text_storage.start_menu_text,
                                   reply_markup=InlineKeyboardMarkup(keyboard))
   except Exception as e:
     logger.error(e)
@@ -197,9 +186,42 @@ async def answer_query_if_not_expired(query):
   try:
     await query.answer()
     return 1
-  except:
+  except Exception:
     return 0
 
+
+async def draw_folder(query, user_id ,folder_id, folder_page):
+  folder = dbmanager.get_folder_by_id(folder_id)
+  data = dbmanager.get_groups_from_folder_name(folder.folder_name)
+  subfolders = dbmanager.get_folders(folder.folder_name)
+  parent_name = folder.parent_name
+  text = folder.folder_text if folder.folder_text else query.message.text
+  pagedownbutton = InlineKeyboardButton(
+    "<", callback_data=f"F_{folder_id}_{max(folder_page-1, 0)}")
+  pageupbutton = InlineKeyboardButton(
+    ">", callback_data=f"F_{folder_id}_{folder_page+1}")
+  backbutton = InlineKeyboardButton(
+    "Назад", callback_data="MENU") if parent_name is None else InlineKeyboardButton(
+      "Назад", callback_data=f"F_{dbmanager.get_folder_by_name(parent_name).folder_id}_0")
+
+  keyboard = \
+  [[InlineKeyboardButton(f"{subfolder.folder_name}", callback_data=f"F_{subfolder.folder_id}_0")]
+    for subfolder in subfolders if folder_page==0]+\
+  [[InlineKeyboardButton(f"{CHECKMARK_EMOJI if dbmanager.is_subscribed(user_id, group.group_id) else CROSS_EMOJI} {group.group_name}",
+                         callback_data=f"G_{folder.folder_id}_{group.group_id}_{folder_page}"), InlineKeyboardButton("ССЫЛКА", url=group.group_link)] for group in data[folder_page*5:folder_page*5+5]]
+  if len(data) > 5:
+    if folder_page == 0:
+      keyboard += [[pageupbutton]]
+    elif folder_page * 5 + 5 >= len(data):
+      keyboard += [[pagedownbutton]]
+    else:
+      keyboard += [[pagedownbutton, pageupbutton]]
+  keyboard += [[backbutton]]
+  try:
+    await query.edit_message_text(text=text,
+                                  reply_markup=InlineKeyboardMarkup(keyboard))
+  except Exception as e:
+    logger.error(e)
 
 #commands to handle bot navigation
 async def folder(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -209,81 +231,17 @@ async def folder(update: Update, context: ContextTypes.DEFAULT_TYPE):
   await answer_query_if_not_expired(query)
   folder_id = int(query.data.split("_")[1])
   folder_page = int(query.data.split("_")[2])
-  folder = name(folder_id)
-  data = dbmanager.get_groups_from_folder(folder)
-  subfolders = dbmanager.get_folders(parent=folder)
-  parent = dbmanager.get_parent(folder)
-  pagedownbutton = InlineKeyboardButton(
-    "<", callback_data=f"F_{folder_id}_{max(folder_page-1, 0)}")
-  pageupbutton = InlineKeyboardButton(
-    ">", callback_data=f"F_{folder_id}_{folder_page+1}")
-  backbutton = InlineKeyboardButton(
-    "Назад", callback_data="MENU") if parent is None else InlineKeyboardButton(
-      "Назад", callback_data=f"F_{id(parent)}_0")
-
-  keyboard = \
-  [[InlineKeyboardButton(f"{subfolder}", callback_data=f"F_{id(subfolder)}_0")]
-    for ids, subfolder in subfolders if folder_page==0]+\
-  [[InlineKeyboardButton(f"{CHECKMARK_EMOJI if dbmanager.is_subscribed(user_id, group) else CROSS_EMOJI} {group}",
-                         callback_data=f"G_{id(folder)}_{ids}_{folder_page}"), InlineKeyboardButton("ССЫЛКА", url=link)] for ids, group, link in data[folder_page*5:folder_page*5+5]]
-  if len(data) > 5:
-    if folder_page == 0:
-      keyboard += [[pageupbutton]]
-    elif folder_page * 5 + 5 >= len(data):
-      keyboard += [[pagedownbutton]]
-    else:
-      keyboard += [[pagedownbutton, pageupbutton]]
-  keyboard += [[backbutton]]
-  try:
-    await query.edit_message_text(text=query.message.text,
-                                  reply_markup=InlineKeyboardMarkup(keyboard))
-  except Exception as e:
-    logger.error(e)
+  await draw_folder(query, user_id, folder_id, folder_page)
 
 async def group(update: Update, context: ContextTypes.DEFAULT_TYPE):
   query = update.callback_query
   user_id = update.effective_chat.id
   logger.debug(f"GROUP for user_id = {user_id}")
   await answer_query_if_not_expired(query)
-  dbmanager.flip_subscribe(user_id, int(query.data.split("_")[2]))
   folder_id = int(query.data.split("_")[1])
   folder_page = int(query.data.split("_")[3])
-  folder = name(folder_id)
-
-  data = dbmanager.get_groups_from_folder(folder=folder)
-  subfolders = dbmanager.get_folders(parent=folder)
-  parent = dbmanager.get_parent(folder)
-
-  pagedownbutton = InlineKeyboardButton(
-    "<", callback_data=f"F_{folder_id}_{max(folder_page-1, 0)}")
-  pageupbutton = InlineKeyboardButton(
-    ">", callback_data=f"F_{folder_id}_{folder_page+1}")
-  backbutton = InlineKeyboardButton(
-    "Назад", callback_data="MENU") if parent is None else InlineKeyboardButton(
-      "Назад", callback_data=f"F_{id(parent)}_0")
-
-  keyboard = [[
-    InlineKeyboardButton(f"{subfolder}", callback_data=f"F_{id(subfolder)}_0")
-  ] for ids, subfolder in subfolders if folder_page == 0]
-  keyboard += [[
-    InlineKeyboardButton(
-      f"{CHECKMARK_EMOJI if dbmanager.is_subscribed(user_id, group) else CROSS_EMOJI} {group}",
-      callback_data=f"G_{id(folder)}_{ids}_{folder_page}"),
-    InlineKeyboardButton("ССЫЛКА", url=link)
-  ] for ids, group, link in data[folder_page * 5:folder_page * 5 + 5]]
-  if len(data) > 5:
-    if folder_page == 0:
-      keyboard += [[pageupbutton]]
-    elif folder_page * 5 + 5 >= len(data):
-      keyboard += [[pagedownbutton]]
-    else:
-      keyboard += [[pagedownbutton, pageupbutton]]
-  keyboard += [[backbutton]]
-  try:
-    await query.edit_message_text(text=query.message.text,
-                                  reply_markup=InlineKeyboardMarkup(keyboard))
-  except Exception as e:
-    logger.error(e)
+  dbmanager.flip_subscribe(user_id, int(query.data.split("_")[2]))
+  await draw_folder(query, user_id, folder_id, folder_page)
 
 def main():
   print("starting")

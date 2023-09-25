@@ -4,15 +4,16 @@ from dataclasses import dataclass
 class Group:
     group_id: int
     group_name: str
-    group_link: str
     post_id: int
+    group_link: str
     folder: str
 
 @dataclass
 class Folder:
     folder_id: int
     folder_name: str
-    parent_name: str
+    parent_name: str|None
+    folder_text: str = None
 
 @dataclass
 class Link:

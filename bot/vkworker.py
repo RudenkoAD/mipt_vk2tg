@@ -22,13 +22,13 @@ class vkfetcher:
 
   def get_new_posts(self, vk_id, iteration_limit=20):
     posts = []
-    post_id = self.dbmanager.get_post_id(vk_id)
+    post_id = self.dbmanager.get_group_by_id(vk_id).post_id
     if post_id is None:
       try:
         post_id = max([
           p["id"] for p in self.api.wall.get(owner_id=vk_id, count=2)["items"]
         ])-1
-      except:
+      except Exception:
         raise ValueError(f"Something is off with group_id = {vk_id}")
     for i in range(iteration_limit):
       new_posts = self.api.wall.get(owner_id=vk_id, count=5,

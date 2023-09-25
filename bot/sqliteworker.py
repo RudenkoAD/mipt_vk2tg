@@ -18,66 +18,55 @@ class sqlcrawler:
 
     # ... Implement your other methods similarly ...
 
-    def get_post_id(self, group_id):
-        self.execute("SELECT post_id FROM groups WHERE group_id = ?", (group_id,))
-        post_id = self.cursor.fetchone()
-        return post_id[0] if post_id else None
-
-    def get_group_id_by_name(self, group_name):
-        self.execute("SELECT group_id FROM groups WHERE group_name = ?", (group_name,))
+    def get_group_by_name(self, group_name):
+        self.execute("SELECT * FROM groups WHERE group_name = ?", (group_name,))
         ans = self.cursor.fetchone()
-        return ans[0] if ans else None
+        return Group(*ans) if ans else None
 
-    def get_all_users(self):
+    def get_all_user_ids(self):
         self.execute("SELECT DISTINCT user_id FROM links WHERE active = ?", (True,))
         users = self.cursor.fetchall()
         return [user[0] for user in users]
 
-    def get_parent(self, folder_name):
-        self.execute("SELECT parent_name FROM folders WHERE folder_name = ?", (folder_name,))
+    def get_group_by_id(self, group_id):
+        self.execute("SELECT * FROM groups WHERE group_id = ?", (group_id,))
         ans = self.cursor.fetchone()
-        return ans[0] if ans else None
+        return Group(*ans) if ans else None
 
-    def get_group_name_by_id(self, group_id):
-        self.execute("SELECT group_name FROM groups WHERE group_id = ?", (group_id,))
+    def get_folder_by_id(self, folder_id):
+        self.execute("SELECT * FROM folders WHERE folder_id = ?", (folder_id,))
         ans = self.cursor.fetchone()
-        return ans[0] if ans else None
+        return Folder(*ans) if ans else None
 
-    def get_folder_name_by_id(self, folder_id):
-        self.execute("SELECT folder_name FROM folders WHERE folder_id = ?", (folder_id,))
+    def get_folder_by_name(self, folder_name):
+        self.execute("SELECT * FROM folders WHERE folder_name = ?", (folder_name,))
         ans = self.cursor.fetchone()
-        return ans[0] if ans else None
-
-    def get_folder_id_by_name(self, folder_name):
-        self.execute("SELECT folder_id FROM folders WHERE folder_name = ?", (folder_name,))
-        ans = self.cursor.fetchone()
-        return ans[0] if ans else None
+        return Folder(*ans) if ans else None
 
     def get_groups(self):
-        self.execute("SELECT group_id, group_name, group_link FROM groups ORDER BY group_name ASC")
+        self.execute("SELECT * FROM groups ORDER BY group_name ASC")
         ans = self.cursor.fetchall()
-        return ans
+        return [Group(*x) for x in ans]
 
-    def get_groups_from_folder(self, folder):
-        self.execute("SELECT group_id, group_name, group_link FROM groups WHERE folder = ? ORDER BY group_name ASC", (folder,))
+    def get_groups_from_folder_name(self, folder):
+        self.execute("SELECT * FROM groups WHERE folder = ? ORDER BY group_name ASC", (folder,))
         ans = self.cursor.fetchall()
-        return ans
+        return [Group(*x) for x in ans]
 
-    def get_folders(self, parent=None):
-        if parent is None:
-            self.execute("SELECT folder_id, folder_name FROM folders WHERE parent_name IS NULL ORDER BY folder_name ASC")
+    def get_folders(self, parent_name=None):
+        if parent_name is None:
+            self.execute("SELECT * FROM folders WHERE parent_name IS NULL ORDER BY folder_name ASC")
         else:
-            self.execute("SELECT folder_id, folder_name FROM folders WHERE parent_name = ? ORDER BY folder_name ASC", (parent,))
+            self.execute("SELECT * FROM folders WHERE parent_name = ? ORDER BY folder_name ASC", (parent_name,))
         ans = self.cursor.fetchall()
-        return ans
+        return [Folder(*x) for x in ans]
 
     def get_subscribers(self, group_id):
         self.execute("SELECT user_id FROM links WHERE group_id = ? AND active = ?", (group_id, True))
         ans = self.cursor.fetchall()
         return [data[0] for data in ans]
 
-    def is_subscribed(self, user_id, group_name):
-        group_id = self.get_group_id_by_name(group_name)
+    def is_subscribed(self, user_id, group_id):
         if group_id is not None:
             self.execute("SELECT active FROM links WHERE group_id = ? AND user_id = ?", (group_id, user_id))
             ans = self.cursor.fetchone()
