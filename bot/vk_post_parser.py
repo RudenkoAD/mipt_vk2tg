@@ -52,7 +52,7 @@ def wrap_message_text(text, post, group_name, begin:bool, end: bool, unattached:
   final_text = ""
   if begin: final_text+=f"{from_group_text}\n"
   final_text+= text
-  if end and (unattached!=0): final_text+=f"{TextStorage.line}\n{unattached_text}\n{TextStorage.line}"
+  if end and (unattached!=0): final_text+=f"\n{TextStorage.line}\n{unattached_text}\n{TextStorage.line}"
   if end: final_text+=f"\n{post_link_text}"
   return final_text
 
