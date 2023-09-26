@@ -7,14 +7,13 @@ class TextStorage:
 '''
   @staticmethod
   def text_unattached(unattached:int):
-    match unattached:
-      case 0:
+      if unattached== 0:
         return ""
-      case 1:
+      elif unattached == 1:
         return f'{unattached} приложение, которое мы не смогли перенести в телеграм'
-      case 2 | 3| 4:
+      elif unattached in [2, 3, 4]:
         return f'{unattached} приложения, которое мы не смогли перенести в телеграм'
-      case _:
+      else:
         return f"{unattached} приложений, которое мы не смогли перенести в телеграм"
 
   line = "———————————————————————————————"
