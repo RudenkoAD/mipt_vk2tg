@@ -14,7 +14,7 @@ from time import sleep
 import json
 import datetime
 from vk_post_parser import get_post_link, get_message_texts, get_attachments_links
-import text_storage
+from text_storage import TextStorage
 #instantiate managers
 dbmanager = sqlcrawler()
 vkmanager = vkfetcher(dbmanager=dbmanager)
@@ -74,7 +74,8 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
 async def wrap_and_put_into_queue(user_ids, group_name, post):
   media = get_attachments_links(post["attachments"])
   has_attachments = media is not None
-  post_texts = get_message_texts(group_name, post, has_attachments)
+  unattached = len(post["attachments"])-len(media) if has_attachments else 0
+  post_texts = get_message_texts(group_name, post, has_attachments, unattached)
   for i, post_text in enumerate(post_texts):
     if (not has_attachments) or (i>0):
       await put_message_into_queue(user_ids, post_text)
@@ -117,7 +118,7 @@ def setup_fetchers(job_queue, dbmanager:sqlcrawler):
   logger.info("started setup_fetchers")
   starttime = datetime.datetime.now()
   d = datetime.timedelta(seconds=1)
-  num = 0
+  num = 1
   for group in dbmanager.get_groups():
     time_to_first = num * d + starttime - datetime.datetime.now()
     num += 1
@@ -136,7 +137,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
               for folder in folders]
 
   await update.message.reply_text(
-    text_storage.start_menu_text,
+    TextStorage.start_menu_text,
     reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def announce(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -177,7 +178,7 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
   keyboard = [[InlineKeyboardButton(folder.folder_name, callback_data=f"F_{folder.folder_id}_0")]
               for folder in folders]
   try:
-    await query.edit_message_text(text=text_storage.start_menu_text,
+    await query.edit_message_text(text=TextStorage.start_menu_text,
                                   reply_markup=InlineKeyboardMarkup(keyboard))
   except Exception as e:
     logger.error(e)

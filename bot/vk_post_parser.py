@@ -2,7 +2,7 @@ import re
 from html import escape
 
 from logger import setup_logger
-
+from text_storage import TextStorage
 logger = setup_logger("vk_post_parser")
 
 def get_post_link(post_id: int, group_id: int):
@@ -45,35 +45,37 @@ def get_attachments_links(attachments):
   #print(photos_links, videos_links)
   return photos_links# + videos_links
 
-def wrap_message_text(text, post, group_name, begin:bool, end: bool):
+def wrap_message_text(text, post, group_name, begin:bool, end: bool, unattached:int = 0):
   from_group_text =f'От <a href="{get_group_link(post["owner_id"])}">{group_name}</a>:' 
   post_link_text = f'<a href="{get_post_link(post["id"], post["owner_id"])}">Оригинальный пост</a>'
+  unattached_text = TextStorage.text_unattached(unattached)
   final_text = ""
   if begin: final_text+=f"{from_group_text}\n"
   final_text+= text
+  if end and (unattached!=0): final_text+=f"{TextStorage.line}\n{unattached_text}\n{TextStorage.line}"
   if end: final_text+=f"\n{post_link_text}"
   return final_text
 
-def get_message_texts(group_name, post: dict, has_attachments: bool):
+def get_message_texts(group_name, post: dict, has_attachments: bool, unattached:int):
   """Returns text message to telegram channel
-    :param post: VK api response    """
-  CAPTION_LEN = 900
-  POST_LEN = 3900
+    :param post: VK api response"""
+  CAPTION_LEN = 800
+  POST_LEN = 3800
   if len(post["text"])<=(CAPTION_LEN if has_attachments else POST_LEN):
     text = parse_vk_post_text(post["text"])
-    text = wrap_message_text(text, post, group_name, begin = True, end=True)
+    text = wrap_message_text(text, post, group_name, begin = True, end=True, unattached=unattached)
     return [text]
   logger.debug(f"post text was too long, cutting it")
   text_list = []
   split = CAPTION_LEN + post["text"][CAPTION_LEN:].find(" ")
   text = parse_vk_post_text(post["text"][:split])
-  text = wrap_message_text(text, post, group_name, begin = True, end=False)
+  text = wrap_message_text(text, post, group_name, begin = True, end=False, unattached=unattached)
   text_list.append(text)
   N = (len(post["text"])-split)//POST_LEN + 1
   for i in range(N):
     end = True if i==N-1 else False
     text = parse_vk_post_text(post["text"][split+POST_LEN*i:split+POST_LEN*(i+1)])
-    text = wrap_message_text(text, post, group_name, False, end)
+    text = wrap_message_text(text, post, group_name, False, end, unattached=unattached)
     text_list.append(text)
   return text_list
 
