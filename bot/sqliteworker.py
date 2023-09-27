@@ -89,7 +89,7 @@ class sqlcrawler:
     def update_post_id(self, group_id, post_id):
         self.execute("UPDATE groups SET post_id = ? WHERE group_id = ?", (post_id, group_id))
 
-    def delete_user(self, user_id):
+    def remove_user(self, user_id):
         self.execute("DELETE FROM links WHERE user_id = ?", (user_id,))
         # Add a corresponding deletion in any other relevant tables
         # e.g., if there are more tables with user references.
@@ -105,9 +105,6 @@ class sqlcrawler:
             self.execute("UPDATE links SET active = ? WHERE group_id = ? AND user_id = ?", (not data[2], group_id, user_id))
         else:
             self.execute("INSERT INTO links (user_id, group_id, active) VALUES (?, ?, ?)", (user_id, group_id, True))
-    def delete_user(self, user_id):
-      requeststring = f"DELETE * from links where user_id = {user_id}"
-      self.execute(requeststring)
     
     def __del__(self):
         self.cursor.close()
