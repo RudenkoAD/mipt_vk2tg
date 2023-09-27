@@ -22,9 +22,9 @@ def get_video_link(attachment):
   return f"https://vk.com/video{attachment['video']['owner_id']}_{attachment['video']['id']}"
 
 def get_photo_link(attachment):
-  if attachment["type"] != "photo":
+  if attachment.type != "photo":
     return None
-  return max(attachment['photo']['sizes'], key=lambda x: x['width'])['url']
+  return max(attachment.photo.sizes, key=lambda x: x.width).url
 
 def get_attachments_links(attachments):
   """:param attachments: VK api response - list of dicts. Each dict is attachment.
@@ -35,7 +35,7 @@ def get_attachments_links(attachments):
   photos_links = [
     get_photo_link(attachment)
     for attachment in attachments
-    if attachment["type"] == "photo"
+    if attachment.type == "photo"
   ]
   # videos_links = [
   #   get_video_link(attachment)
