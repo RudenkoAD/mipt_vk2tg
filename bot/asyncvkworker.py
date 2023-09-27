@@ -57,4 +57,8 @@ class VkFetcher:
 
 if __name__ == "__main__":
     vk_fetcher = VkFetcher()
-    asyncio.run(vk_fetcher.get_new_posts(-1))  # Пример вызова функции
+    access_token = VK_ACCESS_TOKEN  # Replace with your VK access token
+    post = asyncio.run(vk_fetcher.get_post_by_id(-214681464, 171))
+    from vk_post_parser import get_attachments_links
+    print(post.attachments[0])
+

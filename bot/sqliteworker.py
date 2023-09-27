@@ -105,6 +105,9 @@ class sqlcrawler:
             self.execute("UPDATE links SET active = ? WHERE group_id = ? AND user_id = ?", (not data[2], group_id, user_id))
         else:
             self.execute("INSERT INTO links (user_id, group_id, active) VALUES (?, ?, ?)", (user_id, group_id, True))
+    def delete_user(self, user_id):
+      requeststring = f"DELETE * from links where user_id = {user_id}"
+      self.execute(requeststring)
     
     def __del__(self):
         self.cursor.close()
