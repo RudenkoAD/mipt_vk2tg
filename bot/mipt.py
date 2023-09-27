@@ -6,7 +6,7 @@ from telegram.error import RetryAfter, BadRequest, NetworkError, Forbidden  #upm
 from telegram.ext import ApplicationBuilder, ContextTypes  #upm package(python-telegram-bot)
 from logger import setup_logger, clear_logs
 clear_logs()
-from vkworker import vkfetcher
+from asyncvkworker import VkFetcher
 from sqliteworker import sqlcrawler
 from secrets import TG_CREATOR_ID, TG_TOKEN
 import asyncio
@@ -17,7 +17,7 @@ from vk_post_parser import get_post_link, get_message_texts, get_attachments_lin
 from text_storage import TextStorage
 #instantiate managers
 dbmanager = sqlcrawler()
-vkmanager = vkfetcher(dbmanager=dbmanager)
+vkmanager = VkFetcher(dbmanager=dbmanager)
 logger = setup_logger("mipt")
 # Define emojis
 CHECKMARK_EMOJI = "✅"
@@ -72,9 +72,9 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
       post_not_sent = False
 
 async def wrap_and_put_into_queue(user_ids, group_name, post):
-  media = get_attachments_links(post["attachments"])
+  media = get_attachments_links(post.attachments)
   has_attachments = media is not None
-  unattached = len(post["attachments"])-len(media) if has_attachments else 0
+  unattached = len(post.attachments)-len(media) if has_attachments else 0
   post_texts = get_message_texts(group_name, post, has_attachments, unattached)
   for i, post_text in enumerate(post_texts):
     if (not has_attachments) or (i>0):
@@ -92,7 +92,7 @@ async def get_and_fetch_one(context):
   group_id = context.job.data
   try:
     logger.debug(f"fetching from group_id = {group_id}")
-    posts = vkmanager.get_new_posts(vk_id=group_id)
+    posts = await vkmanager.get_new_posts(vk_id=group_id)
     for post in reversed(posts):
       await handle_post(post)
     logger.debug(f"finished fetching from group_id = {group_id}")
@@ -100,18 +100,18 @@ async def get_and_fetch_one(context):
     logger.info(f"fetching from group_id = {group_id} failed: {e.args}")
 
 async def handle_post(post, special_user_destination = None, special_group_name = None):
-  group_id = post["owner_id"]
-  logger.debug(f"starting make_post: {get_post_link(post['id'], group_id)}")
+  group_id = post.owner_id
+  logger.debug(f"starting make_post: {get_post_link(post.id, group_id)}")
   group_name = dbmanager.get_group_by_id(group_id).group_name if special_group_name is None else special_group_name
   user_ids = dbmanager.get_subscribers(group_id) if special_user_destination is None else special_user_destination
   
   await wrap_and_put_into_queue(user_ids, group_name, post)
   
-  if post.get("copy_history", None) is not None:
-    for repost in post["copy_history"]:
+  if post.copy_history is not None:
+    for repost in post.copy_history:
       await handle_post(repost, special_user_destination=user_ids, special_group_name = "репоста, прикрепленного к посту выше")#recursion if there is a repost inside this post
     
-  dbmanager.update_post_id(group_id, post["id"])
+  dbmanager.update_post_id(group_id, post.id)
   
 
 def setup_fetchers(job_queue, dbmanager:sqlcrawler):

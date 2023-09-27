@@ -1,6 +1,11 @@
 import logging
 import os
 
+logging.basicConfig(
+    level=logging.INFO,  # Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Set log message format
+)
+
 def clear_logs():
   folder = os.path.join("logs")
   for filename in os.listdir(folder):
