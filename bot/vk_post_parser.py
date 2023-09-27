@@ -22,7 +22,7 @@ def get_video_link(attachment):
   return f"https://vk.com/video{attachment['video']['owner_id']}_{attachment['video']['id']}"
 
 def get_photo_link(attachment):
-  if attachment.type != "photo":
+  if attachment.photo is None:
     return None
   return max(attachment.photo.sizes, key=lambda x: x.width).url
 
@@ -35,7 +35,7 @@ def get_attachments_links(attachments):
   photos_links = [
     get_photo_link(attachment)
     for attachment in attachments
-    if attachment.type == "photo"
+    if attachment.photo is not None
   ]
   # videos_links = [
   #   get_video_link(attachment)
