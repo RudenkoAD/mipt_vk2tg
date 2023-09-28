@@ -37,7 +37,7 @@ def wrap_message_text(text, post, group_name, begin:bool, end: bool, attachments
   if end: final_text+=f"\n{post_link_text}"
   return final_text
 
-def get_message_texts(group_name, post, attachments:list[Attachment]):
+def get_message_texts(group_name, post, attachments):
   """Returns text message to telegram channel
     :param post: VK api response"""
   CAPTION_LEN = 800
