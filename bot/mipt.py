@@ -13,7 +13,8 @@ import asyncio
 from time import sleep
 import json
 import datetime
-from vk_post_parser import get_post_link, get_message_texts, get_attachments_links
+from attachmentmanager import get_attachments_links
+from vk_post_parser import get_post_link, get_message_texts
 from text_storage import TextStorage
 #instantiate managers
 dbmanager = sqlcrawler()
@@ -47,14 +48,15 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
   while post_not_sent:
     try:
       if (media is None) or (len(media) == 0):
-        await bot.send_message(chat_id=chat_id, text=caption, parse_mode="HTML")
+        await bot.send_message(chat_id=chat_id, text=caption, parse_mode="HTML", disable_web_page_preview=True)
       else:
         await bot.send_media_group(chat_id=chat_id,
                                    media=media,
                                    caption=caption,
                                    read_timeout=60,
                                    write_timeout=60,
-                                   parse_mode="HTML")
+                                   parse_mode="HTML",
+                                   api_kwargs={"disable_web_page_preview":True})
       post_not_sent = False
     except RetryAfter as e:
       logger.error(
@@ -73,17 +75,17 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
 
 async def wrap_and_put_into_queue(user_ids, group_name, post):
   media = get_attachments_links(post.attachments)
-  has_attachments = media is not None
-  unattached = len(post.attachments)-len(media) if has_attachments else 0
-  post_texts = get_message_texts(group_name, post, has_attachments, unattached)
+  if len(media) > 10:
+    logger.warning("we've just jut the media, check this post")
+    media = media[:10]
+  photos = [i.link for i in media if i.attachment_type=="photo"]
+  post_texts = get_message_texts(group_name, post, media)
   for i, post_text in enumerate(post_texts):
-    if (not has_attachments) or (i>0):
+    if i>0:
       await put_message_into_queue(user_ids, post_text)
       logger.debug(f"put message into queue for users {user_ids}")
     else:
-      if len(media) > 10:
-        media = media[:10]
-      await put_message_into_queue(user_ids, post_text, media)
+      await put_message_into_queue(user_ids, post_text, photos)
       logger.debug(f"put message into queue for users {user_ids}")
 
 
@@ -148,12 +150,13 @@ async def announce(update: Update, context: ContextTypes.DEFAULT_TYPE):
   else:
     logger.info(f"denied use of /announce to user_id = {update.effective_user.id}")
     return
+  
 
 async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
   if update.effective_user.id==TG_CREATOR_ID:
     users = dbmanager.get_all_user_ids()
-    text = "\n".join([f"[{user_id}](tg://user?id={user_id})" for user_id in users])
-    await send_message(context.bot, TG_CREATOR_ID, text, None)
+    text = str(len(users))+'\n'+"\n".join([f"[{user_id}](tg://user?id={user_id})" for user_id in users])
+    await context.bot.send_message(TG_CREATOR_ID, text, parse_mode="MarkdownV2")
   else:
     logger.info(f"denied use of /list_users to user_id = {update.effective_user.id}")
     return

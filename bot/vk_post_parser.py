@@ -1,10 +1,9 @@
 import re
 from html import escape
-
 from logger import setup_logger
 from text_storage import TextStorage
 logger = setup_logger("vk_post_parser")
-
+from attachmentmanager import Attachment
 def get_post_link(post_id: int, group_id: int):
   """Returns link to post in VK"""
   link = f"https://vk.com/wall{group_id}_{post_id}"
@@ -15,67 +14,54 @@ def get_group_link(group_id: int):
   link = f"https://vk.com/club{-group_id}"
   return link
 
-
-def get_video_link(attachment):
-  if attachment["type"] != "video":
-    return None
-  return f"https://vk.com/video{attachment['video']['owner_id']}_{attachment['video']['id']}"
-
-def get_photo_link(attachment):
-  if attachment.photo is None:
-    return None
-  return max(attachment.photo.sizes, key=lambda x: x.width).url
-
-def get_attachments_links(attachments):
-  """:param attachments: VK api response - list of dicts. Each dict is attachment.
-    :return: list of photos links or None if there is no photos"""
-  if attachments is None or len(attachments) == 0:
-    logger.debug("found no photos in attachments")
-    return None
-  photos_links = [
-    get_photo_link(attachment)
-    for attachment in attachments
-    if attachment.photo is not None
-  ]
-  # videos_links = [
-  #   get_video_link(attachment)
-  #   for attachment in attachments
-  #   if (attachment.get("type", None) == "video") and (attachment.get("video", {}).get("platform", None) is None)
-  # ]
-  #print(photos_links, videos_links)
-  return photos_links# + videos_links
-
-def wrap_message_text(text, post, group_name, begin:bool, end: bool, unattached:int = 0):
+def wrap_message_text(text, post, group_name, begin:bool, end: bool, attachments):
+  unattached=0
+  for attachment in attachments:
+    if attachment.attachment_type == "не определили":
+      unattached +=1
+  
   from_group_text =f'От <a href="{get_group_link(post.owner_id)}">{group_name}</a>:' 
   post_link_text = f'<a href="{get_post_link(post.id, post.owner_id)}">Оригинальный пост</a>'
+  links_texts = [f'<a href="{attachment.link}">{attachment.attachment_type}</a>' for attachment in attachments if attachment.attachment_type != "photo"]
   unattached_text = TextStorage.text_unattached(unattached)
   final_text = ""
   if begin: final_text+=f"{from_group_text}\n"
   final_text+= text
-  if end and (unattached!=0): final_text+=f"\n{TextStorage.line}\n{unattached_text}\n{TextStorage.line}"
+  if end and (len(links_texts)>0 or unattached>0): 
+    final_text+=f"\n——К ПОСТУ ПРИКРЕПЛЕНЫ——"
+    if len(links_texts)>0:
+      final_text+=f"\n{' ; '.join(links_texts)}"
+    if unattached>0:
+      final_text+=f"\n{unattached_text}"
+    final_text+=f"\n{TextStorage.line}"
   if end: final_text+=f"\n{post_link_text}"
   return final_text
 
-def get_message_texts(group_name, post: dict, has_attachments: bool, unattached:int):
+def get_message_texts(group_name, post, attachments:list[Attachment]):
   """Returns text message to telegram channel
     :param post: VK api response"""
   CAPTION_LEN = 800
   POST_LEN = 3800
-  if len(post.text)<=(CAPTION_LEN if has_attachments else POST_LEN):
+  has_photos = False
+  for attachment in attachments:
+    if attachment.attachment_type == "photo":
+      has_photos = True
+    
+  if len(post.text)<=(CAPTION_LEN if has_photos else POST_LEN):
     text = parse_vk_post_text(post.text)
-    text = wrap_message_text(text, post, group_name, begin = True, end=True, unattached=unattached)
+    text = wrap_message_text(text, post, group_name, begin = True, end=True, attachments=attachments)
     return [text]
   logger.debug(f"post text was too long, cutting it")
   text_list = []
   split = CAPTION_LEN + post.text[CAPTION_LEN:].find(" ")
   text = parse_vk_post_text(post.text[:split])
-  text = wrap_message_text(text, post, group_name, begin = True, end=False, unattached=unattached)
+  text = wrap_message_text(text, post, group_name, begin = True, end=False)
   text_list.append(text)
   N = (len(post.text)-split)//POST_LEN + 1
   for i in range(N):
     end = True if i==N-1 else False
     text = parse_vk_post_text(post.text[split+POST_LEN*i:split+POST_LEN*(i+1)])
-    text = wrap_message_text(text, post, group_name, False, end, unattached=unattached)
+    text = wrap_message_text(text, post, group_name, False, end, attachments)
     text_list.append(text)
   return text_list
 
