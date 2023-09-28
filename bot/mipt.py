@@ -156,10 +156,10 @@ async def announce(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
   if update.effective_user.id==TG_CREATOR_ID:
     users = dbmanager.get_all_user_ids()
-    text = str(len(users))+'\n'+"\n".join([f"[{user_id}](tg://user?id={user_id})" for user_id in users])
-    await context.bot.send_message(TG_CREATOR_ID, text[:4000], parse_mode="MarkdownV2")
+    text = str(len(users))#+'\n'+"\n".join([f"[{user_id}](tg://user?id={user_id})" for user_id in users])
+    await context.bot.send_message(TG_CREATOR_ID, text)
   else:
-    logger.info(f"denied use of /list_users to user_id = {update.effective_user.id}")
+    logger.info(f"denied use of /list to user_id = {update.effective_user.id}")
     return
 
 async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
