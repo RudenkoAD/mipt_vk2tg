@@ -48,7 +48,7 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
   while post_not_sent:
     try:
       if (media is None) or (len(media) == 0):
-        await bot.send_message(chat_id=chat_id, text=caption, parse_mode="HTML", disable_web_page_preview=True)
+        await bot.send_message(chat_id=chat_id, text=caption, parse_mode="HTML")
       else:
         await bot.send_media_group(chat_id=chat_id,
                                    media=media,
@@ -76,7 +76,7 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
 async def wrap_and_put_into_queue(user_ids, group_name, post):
   media = get_attachments_links(post.attachments)
   if len(media) > 10:
-    logger.warning("we've just jut the media, check this post")
+    logger.warning("we've just cut the media, check this post")
     media = media[:10]
   photos = [i.link for i in media if i.attachment_type=="photo"]
   post_texts = get_message_texts(group_name, post, media)
