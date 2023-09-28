@@ -57,8 +57,9 @@ class VkFetcher:
 
 if __name__ == "__main__":
     vk_fetcher = VkFetcher()
+    import logging
+    logging.getLogger("vkbottle").setLevel(logging.ERROR)
     access_token = VK_ACCESS_TOKEN  # Replace with your VK access token
-    post = asyncio.run(vk_fetcher.get_post_by_id(-214681464, 171))
-    from vk_post_parser import get_attachments_links
+    post = asyncio.run(vk_fetcher.get_post_by_id(-102473805, 3480))
     print(post.attachments[0])
 
