@@ -43,12 +43,12 @@ async def send_message_from_queue(context):
   else:
     logger.info("no messages in queue")
 
-async def send_message(bot: Bot, chat_id, caption, media=None):
+async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
   post_not_sent = True
   while post_not_sent:
     try:
       if (media is None) or (len(media) == 0):
-        await bot.send_message(chat_id=chat_id, text=caption, parse_mode="HTML")
+        await bot.send_message(chat_id=chat_id, text=caption, parse_mode="HTML", disable_notification=silent, disable_web_page_preview=True)
       else:
         await bot.send_media_group(chat_id=chat_id,
                                    media=media,
@@ -56,7 +56,8 @@ async def send_message(bot: Bot, chat_id, caption, media=None):
                                    read_timeout=60,
                                    write_timeout=60,
                                    parse_mode="HTML",
-                                   api_kwargs={"disable_web_page_preview":True})
+                                   api_kwargs={"disable_web_page_preview":True},
+                                   disable_notification=silent)
       post_not_sent = False
     except RetryAfter as e:
       logger.error(
@@ -99,7 +100,7 @@ async def get_and_fetch_one(context):
       await handle_post(post)
     logger.debug(f"finished fetching from group_id = {group_id}")
   except Exception as e:
-    logger.info(f"fetching from group_id = {group_id} failed: {e.args}")
+    logger.error(f"fetching from group_id = {group_id} failed: {e.args}")
     await context.bot.send_message(TG_CREATOR_ID, f"fetching from group_id = {group_id} failed: {e.args}")
 
 async def handle_post(post, special_user_destination = None, special_group_name = None):
@@ -145,13 +146,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def announce(update: Update, context: ContextTypes.DEFAULT_TYPE):
   if update.effective_user.id==TG_CREATOR_ID:
-    text =update.message.text[10:]
+    num = update.message.text.find('\n')
+    text = update.message.text[num+1:]
     for user_id in dbmanager.get_all_user_ids():
-      await send_message(context.bot, user_id, text, None)
+      await send_message(context.bot, user_id, text, None, silent=False)
   else:
     logger.info(f"denied use of /announce to user_id = {update.effective_user.id}")
     return
   
+async def announce_silent(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  if update.effective_user.id==TG_CREATOR_ID:
+    num = update.message.text.find('\n')
+    text = update.message.text[num+1:]
+    for user_id in dbmanager.get_all_user_ids():
+      await send_message(context.bot, user_id, text, None, silent=True)
+  else:
+    logger.info(f"denied use of /announce_silent to user_id = {update.effective_user.id}")
+    return
 
 async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
   if update.effective_user.id==TG_CREATOR_ID:
@@ -256,6 +267,7 @@ def main():
   application.add_handler(CommandHandler('start', start))
   application.add_handler(CommandHandler('contact', contact))
   application.add_handler(CommandHandler('announce', announce))
+  application.add_handler(CommandHandler('announce_silent', announce))
   application.add_handler(CommandHandler('list', list_users))
   application.add_handler(CallbackQueryHandler(menu, pattern="^MENU$"))
   application.add_handler(CallbackQueryHandler(folder, pattern="^F"))

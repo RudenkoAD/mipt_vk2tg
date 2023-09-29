@@ -40,7 +40,7 @@ def wrap_message_text(text, post, group_name, begin:bool, end: bool, attachments
 def get_message_texts(group_name, post, attachments):
   """Returns text message to telegram channel
     :param post: VK api response"""
-  CAPTION_LEN = 800
+  CAPTION_LEN = 850
   POST_LEN = 3800
   has_photos = False
   for attachment in attachments:
@@ -53,7 +53,10 @@ def get_message_texts(group_name, post, attachments):
     return [text]
   logger.debug(f"post text was too long, cutting it")
   text_list = []
-  split = CAPTION_LEN + post.text[CAPTION_LEN:].find(" ")
+  next_space = (post.text)[CAPTION_LEN:].find(" ")
+  if next_space!=-1: split = CAPTION_LEN + next_space
+  else: split = len(post.text)
+  
   text = parse_vk_post_text(post.text[:split])
   text = wrap_message_text(text, post, group_name, begin = True, end=False)
   text_list.append(text)
