@@ -35,7 +35,7 @@ def get_note_link(attachment):
 
 def get_poll_link(attachment):
   poll = attachment.poll
-  return f"https://vk.com/video{poll.owner_id}_{poll.id}"
+  return f"https://vk.com/poll{poll.owner_id}_{poll.id}"
 
 def handle_attachment(attachment):
   if attachment.photo is not None:
