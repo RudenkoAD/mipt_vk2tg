@@ -275,7 +275,7 @@ def main():
 
   setup_fetchers(job_queue, dbmanager)
   job_queue.run_repeating(send_message_from_queue,
-                            interval=5)
+                            interval=1)
   logger.info("starting app")
   application.run_polling(allowed_updates=Update.ALL_TYPES)
   logger.info("ended app")

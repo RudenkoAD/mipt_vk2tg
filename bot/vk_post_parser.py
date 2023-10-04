@@ -55,7 +55,12 @@ def get_message_texts(group_name, post, attachments):
   text_list = []
   next_space = (post.text)[CAPTION_LEN:].find(" ")
   if next_space!=-1: split = CAPTION_LEN + next_space
-  else: split = len(post.text)
+  else: #go here only if we have more than 800 symbols, but also have no spaces after the splittting point
+    k=50
+    while split==-1:
+      split = (len(post.text)-k).find(" ")#we try to find an earlier splitting point
+      if k>=len(post.text):
+        split = len(post.text) #if we fail at that, then just fuck it and we cut however we want
   
   text = parse_vk_post_text(post.text[:split])
   text = wrap_message_text(text, post, group_name, begin = True, end=False)
