@@ -38,7 +38,17 @@ class VkFetcher:
             if not await exist_bigger_element(new_posts_ids, post_id):
                 posts = [p for p in posts if p.id > post_id]
                 log.debug(f"Found new posts for {vk_id}" if len(posts) != 0 else f"No new posts found for {vk_id}")
-                return posts
+                unique_ids = []
+                unique_posts = []
+                for post in posts:
+                    if post.id in unique_ids:
+                        continue
+                    else:
+                        unique_ids.append(post.id)
+                        unique_posts.append(post)
+                return unique_posts
+              
+              
 
         log.error(f"Too many posts found for {vk_id}. Maybe something is wrong")
         raise ValueError("Too many posts found")
