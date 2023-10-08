@@ -48,7 +48,7 @@ def get_message_texts(group_name, post, attachments):
       has_photos = True
     
   if len(post.text)<=(CAPTION_LEN if has_photos else POST_LEN):
-    text = parse_vk_post_text(post.text)
+    text = parse_vk_post_text(escape(post.text))
     text = wrap_message_text(text, post, group_name, begin = True, end=True, attachments=attachments)
     return [text]
   logger.debug(f"post text was too long, cutting it")
@@ -62,13 +62,13 @@ def get_message_texts(group_name, post, attachments):
       if k>=len(post.text):
         split = len(post.text) #if we fail at that, then just fuck it and we cut however we want
   
-  text = parse_vk_post_text(post.text[:split])
+  text = parse_vk_post_text(escape(post.text[:split]))
   text = wrap_message_text(text, post, group_name, begin = True, end=False)
   text_list.append(text)
   N = (len(post.text)-split)//POST_LEN + 1
   for i in range(N):
     end = True if i==N-1 else False
-    text = parse_vk_post_text(post.text[split+POST_LEN*i:split+POST_LEN*(i+1)])
+    text = parse_vk_post_text(escape(post.text[split+POST_LEN*i:split+POST_LEN*(i+1)]))
     text = wrap_message_text(text, post, group_name, False, end, attachments)
     text_list.append(text)
   return text_list
