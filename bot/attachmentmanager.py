@@ -57,6 +57,7 @@ def handle_attachment(attachment):
 def get_attachments_links(attachments):
   """:param attachments: VK api response - list of dicts. Each dict is attachment.
     :return: list of photos links or None if there is no photos"""
+  if attachments is None: return []
   return [i for i in [handle_attachment(attachment) for attachment in attachments] if i is not None]
 
 

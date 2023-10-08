@@ -39,7 +39,9 @@ async def send_message_from_queue(context):
   message = dbmanager.get_message_from_queue()
   if message is not None:
     try:
-      media = [InputMediaPhoto(url) for url in  json.loads(message.media)]
+      medias = json.loads(message.media)
+      if medias is None: medias = []
+      media = [InputMediaPhoto(url) for url in medias]
     except Exception:
       await handle_exception(context.bot)
       media = []
