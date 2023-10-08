@@ -81,6 +81,11 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
       await asyncio.sleep(1800)
       await send_message(bot, chat_id, caption, media)
       post_not_sent = False
+    except Exception as e:
+      await handle_exception(bot)
+      await asyncio.sleep(1800)
+      await send_message(bot, chat_id, caption, media)
+      post_not_sent = False
 
 async def wrap_and_put_into_queue(user_ids, group_name, post):
   media = get_attachments_links(post.attachments)
