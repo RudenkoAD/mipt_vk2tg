@@ -23,6 +23,11 @@ logger = setup_logger("mipt")
 # Define emojis
 CHECKMARK_EMOJI = "✅"
 CROSS_EMOJI = "❌"
+import traceback
+
+async def handle_exception(bot):
+  text = traceback.format_exc()
+  await send_message(bot, TG_CREATOR_ID, text, None)
 
   
 async def put_message_into_queue(user_ids, caption, media=None):
@@ -36,7 +41,8 @@ async def send_message_from_queue(context):
     try:
       media = [InputMediaPhoto(url) for url in  json.loads(message.media)]
     except Exception:
-      media = None
+      await handle_exception(context.bot)
+      media = []
     await send_message(context.bot, chat_id=message.chat_id, caption=message.caption, media=media)
     logger.info(f"sent post from queue to user {message.chat_id}")
     dbmanager.del_message_from_queue(message.message_id)
@@ -69,7 +75,7 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
       post_not_sent = False
     except NetworkError as e:
       logger.error(f"Network error: {e}")
-      await send_message(bot, TG_CREATOR_ID, "АХАХ Я ОПЯТЬ СЛОМАЛСЯ", None)
+      await handle_exception(bot)
       await asyncio.sleep(1800)
       await send_message(bot, chat_id, caption, media)
       post_not_sent = False
@@ -101,7 +107,7 @@ async def get_and_fetch_one(context):
     logger.debug(f"finished fetching from group_id = {group_id}")
   except Exception as e:
     logger.error(f"fetching from group_id = {group_id} failed: {e.args}")
-    await context.bot.send_message(TG_CREATOR_ID, f"fetching from group_id = {group_id} failed: {e.args}")
+    await handle_exception(context.bot)
 
 async def handle_post(post, special_user_destination = None, special_group_name = None):
   group_id = post.owner_id
@@ -196,6 +202,7 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text(text=TextStorage.start_menu_text,
                                   reply_markup=InlineKeyboardMarkup(keyboard))
   except Exception as e:
+    await handle_exception(context.bot)
     logger.error(e)
 
 async def answer_query_if_not_expired(query):
@@ -237,6 +244,7 @@ async def draw_folder(query, user_id ,folder_id, folder_page):
     await query.edit_message_text(text=text,
                                   reply_markup=InlineKeyboardMarkup(keyboard))
   except Exception as e:
+    await handle_exception(query.bot)
     logger.error(e)
 
 #commands to handle bot navigation

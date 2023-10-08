@@ -27,8 +27,8 @@ class VkFetcher:
                 response = await self.api.wall.get(owner_id=vk_id, count=2)
                 post_id = max([p.id for p in response.items])
             except Exception:
-                log.error(f"couldn't get a new post_id (instead od NULL) for group_id = {vk_id}")
-                raise ValueError(f"couldn't get a new post_id (instead od NULL) for group_id = {vk_id}")
+                log.error(f"couldn't get a new post_id (instead of NULL) for group_id = {vk_id}")
+                raise ValueError(f"couldn't get a new post_id (instead of NULL) for group_id = {vk_id}")
 
         for i in range(iteration_limit):
             response = await self.api.wall.get(owner_id=vk_id, count=1, offset=i)
