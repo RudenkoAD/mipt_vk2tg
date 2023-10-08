@@ -46,7 +46,7 @@ class VkFetcher:
                     else:
                         unique_ids.append(post.id)
                         unique_posts.append(post)
-                return unique_posts
+                return unique_posts[::-1]
               
               
 
