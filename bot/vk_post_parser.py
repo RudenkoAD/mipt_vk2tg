@@ -56,6 +56,7 @@ def get_message_texts(group_name, post, attachments):
   next_space = (post.text)[CAPTION_LEN:].find(" ")
   if next_space!=-1: split = CAPTION_LEN + next_space
   else: #go here only if we have more than 800 symbols, but also have no spaces after the splittting point
+    split = len(post.text)
     k=50
     while split==-1:
       split = (len(post.text)-k).find(" ")#we try to find an earlier splitting point
