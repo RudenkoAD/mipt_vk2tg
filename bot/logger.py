@@ -2,7 +2,7 @@ import logging
 import os
 
 logging.basicConfig(
-    level=logging.INFO,  # Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    level=logging.ERROR,  # Set log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Set log message format
 )
 
@@ -19,23 +19,23 @@ def clear_logs():
 def setup_logger(name):
   # Create a logger instance
   logger = logging.getLogger(name)
-  logger.setLevel(logging.DEBUG)
+  logger.setLevel(logging.ERROR)
 
   # Create a file handler and set its level to DEBUG
   file_handler = logging.FileHandler(os.path.join("logs", f"{name}.log"))
-  file_handler.setLevel(logging.DEBUG)
+  file_handler.setLevel(logging.ERROR)
 
   #create a all-in-one log:
   file_handler_2 = logging.FileHandler(os.path.join("logs", "all.log"))
-  file_handler_2.setLevel(logging.DEBUG)
+  file_handler_2.setLevel(logging.ERROR)
 
   #create a all-in-one log:
   file_handler_3 = logging.FileHandler(os.path.join("logs", "errors.log"))
-  file_handler_3.setLevel(logging.DEBUG)
+  file_handler_3.setLevel(logging.ERROR)
 
   # Create a stream handler and set its level to INFO
   stream_handler = logging.StreamHandler()
-  stream_handler.setLevel(logging.INFO)
+  stream_handler.setLevel(logging.ERROR)
 
   # Create a formatter and add it to the handlers
   formatter = logging.Formatter(
