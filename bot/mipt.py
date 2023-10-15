@@ -52,57 +52,74 @@ async def send_message_from_queue(context):
     logger.info("no messages in queue")
 
 async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
-  post_not_sent = True
-  if caption == "" or caption is None:
-    return
-  while post_not_sent:
-    try:
-      if (media is None) or (len(media) == 0):
-        await bot.send_message(chat_id=chat_id, text=caption, parse_mode="HTML", disable_notification=silent, disable_web_page_preview=True)
-      else:
-        await bot.send_media_group(chat_id=chat_id,
-                                   media=media,
-                                   caption=caption,
-                                   read_timeout=60,
-                                   write_timeout=60,
-                                   parse_mode="HTML",
-                                   api_kwargs={"disable_web_page_preview":True},
-                                   disable_notification=silent)
-      post_not_sent = False
-    except RetryAfter as e:
-      logger.error(
-        f"telegram throttled us, waiting for {e.retry_after} seconds")
-      await asyncio.sleep(e.retry_after + 1)
-    except Forbidden:
-      logger.debug(f"user with id {chat_id} has blocked us")
-      dbmanager.remove_user(chat_id)
-      post_not_sent = False
-    except NetworkError as e:
-      logger.error(f"Network error: {e}")
-      await handle_exception(bot)
-      await asyncio.sleep(1800)
-      await send_message(bot, chat_id, caption, media)
-      post_not_sent = False
-    except Exception as e:
-      await handle_exception(bot)
-      await asyncio.sleep(1800)
-      await send_message(bot, chat_id, caption, media)
-      post_not_sent = False
+    """Sends a message to a specified chat_id with optional media"""
+    if caption == "" or caption is None:
+        return
+    
+    while True:
+        try:
+            if media:
+                await bot.send_media_group(
+                    chat_id=chat_id,
+                    media=media,
+                    caption=caption,
+                    parse_mode="HTML",
+                    api_kwargs={"disable_web_page_preview": True},
+                    disable_notification=silent,
+                    read_timeout=10,
+                    write_timeout=10,
+                    connect_timeout=10,
+                    pool_timeout=10
+                )
+            else:
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text=caption,
+                    parse_mode="HTML",
+                    disable_notification=silent,
+                    disable_web_page_preview=True,
+                    read_timeout=10,
+                    write_timeout=10,
+                    connect_timeout=10,
+                    pool_timeout=10
+                )
+            break
+            
+        except RetryAfter as e:
+            logger.error(f"telegram throttled us, waiting for {e.retry_after} seconds")
+            await asyncio.sleep(e.retry_after + 1)
+            
+        except Forbidden:
+            logger.debug(f"user with id {chat_id} has blocked us")
+            dbmanager.remove_user(chat_id)
+            break
+            
+        except NetworkError as e:
+            logger.error(f"Network error: {e}")
+            await handle_exception(bot)
+            await asyncio.sleep(1800)
+            
+        except Exception as e:
+            logger.error(f"Unknown error: {e}")
+            await handle_exception(bot)
+            await asyncio.sleep(1800)
 
 async def wrap_and_put_into_queue(user_ids, group_name, post):
-  media = get_attachments_links(post.attachments)
-  if len(media) > 10:
-    logger.warning("we've just cut the media, check this post")
+    """Wraps a post and puts it into the queue for each user id in the list"""
+    media = get_attachments_links(post.attachments)
+    
+    # limit media to 10 links only
     media = media[:10]
-  photos = [i.link for i in media if i.attachment_type=="photo"]
-  post_texts = get_message_texts(group_name, post, media)
-  for i, post_text in enumerate(post_texts):
-    if i>0:
-      await put_message_into_queue(user_ids, post_text)
-      logger.debug(f"put message into queue for users {user_ids}")
-    else:
-      await put_message_into_queue(user_ids, post_text, photos)
-      logger.debug(f"put message into queue for users {user_ids}")
+    if len(media) > 10:
+        logger.warning("we've just cut the media, check this post")
+    
+    photos = [i.link for i in media if i.attachment_type == "photo"]
+    post_texts = get_message_texts(group_name, post, media)
+    
+    for i, post_text in enumerate(post_texts):
+        await put_message_into_queue(user_ids, post_text, photos if i == 0 else None)
+        logger.debug(f"put message into queue for users {user_ids}")
+
 
 
 async def get_and_fetch_one(context):
@@ -118,25 +135,26 @@ async def get_and_fetch_one(context):
     logger.error(f"fetching from group_id = {group_id} failed: {e.args}")
     await handle_exception(context.bot)
 
-async def handle_post(post, special_user_destination = None, special_group_name = None):
-  group_id = post.owner_id
-  logger.debug(f"starting make_post: {get_post_link(post.id, group_id)}")
-  group_name = dbmanager.get_group_by_id(group_id).group_name if special_group_name is None else special_group_name
-  user_ids = dbmanager.get_subscribers(group_id) if special_user_destination is None else special_user_destination
-  
-  await wrap_and_put_into_queue(user_ids, group_name, post)
-  
-  if post.copy_history is not None:
-    for repost in post.copy_history:
-      await handle_post(repost, special_user_destination=user_ids, special_group_name = "репоста, прикрепленного к посту выше")#recursion if there is a repost inside this post
+async def handle_post(post, special_user_destination=None, special_group_name=None, special_group_id=None):
+    """Wraps a post and puts it into the queue for each user id in the list"""
+    group_id = post.owner_id if special_group_id is None else special_group_id
+    logger.debug(f"starting make_post: {get_post_link(post.id, group_id)}")
     
-  dbmanager.update_post_id(group_id, post.id)
-  
+    group_name = dbmanager.get_group_by_id(group_id).group_name if special_group_name is None else special_group_name
+    user_ids = dbmanager.get_subscribers(group_id) if special_user_destination is None else special_user_destination
+    
+    await wrap_and_put_into_queue(user_ids, group_name, post)
+    
+    if post.copy_history is not None:
+        for repost in post.copy_history:
+            await handle_post(repost, special_user_destination=user_ids, special_group_name="репоста, прикрепленного к посту выше", special_group_id=group_id) #recursion if there is a repost inside this post
+    
+    dbmanager.update_post_id(group_id, post.id)
 
 def setup_fetchers(job_queue, dbmanager:sqlcrawler):
   logger.info("started setup_fetchers")
   starttime = datetime.datetime.now()
-  d = datetime.timedelta(seconds=1)
+  d = datetime.timedelta(seconds=3)
   num = 1
   for group in dbmanager.get_groups():
     time_to_first = num * d + starttime - datetime.datetime.now()
@@ -278,6 +296,7 @@ async def group(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
   print("starting")
+
   application = ApplicationBuilder().token(TG_TOKEN).build()
   job_queue = application.job_queue
   logger.info("adding handlers")
