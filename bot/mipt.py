@@ -53,6 +53,8 @@ async def send_message_from_queue(context):
 
 async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
   post_not_sent = True
+  if caption == "" or caption is None:
+    return
   while post_not_sent:
     try:
       if (media is None) or (len(media) == 0):
