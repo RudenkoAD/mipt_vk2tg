@@ -31,7 +31,7 @@ class VkFetcher:
                 raise ValueError(f"couldn't get a new post_id (instead of NULL) for group_id = {vk_id}")
 
         for i in range(iteration_limit):
-            response = await self.api.wall.get(owner_id=vk_id, count=1, offset=i)
+            response = await self.api.wall.get(owner_id=vk_id, count=2, offset=2*i)
             new_posts = response.items
             new_posts_ids = [post.id for post in new_posts]
             posts.extend(new_posts)
