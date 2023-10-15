@@ -26,7 +26,7 @@ CROSS_EMOJI = "❌"
 import traceback
 
 async def handle_exception(bot):
-  texts = traceback.format_exc()[:-3998]
+  text = traceback.format_exc()[:-3998]
   await send_message(bot, TG_CREATOR_ID, text, None)
 
   
