@@ -23,14 +23,15 @@ class VkFetcher:
         group = self.dbmanager.get_group_by_id(vk_id)
         post_id = group.post_id
         POST_COUNT = 2
-        try:
-            response = await self.api.wall.get(owner_id=vk_id, count=POST_COUNT)
-            post_id = max([p.id for p in response.items])
-            self.dbmanager.update_post_id(group.group_id, post_id)
-        except VKAPIError as e:
-            log.error(f"Couldn't get new post id for group_id = {vk_id}. Error: {e}")
-            if post_id is None:
-                raise ValueError(f"Couldn't get new post id for group_id = {vk_id}")
+        if post_id is None:
+          try:
+              response = await self.api.wall.get(owner_id=vk_id, count=POST_COUNT)
+              post_id = max([p.id for p in response.items])
+              self.dbmanager.update_post_id(group.group_id, post_id)
+          except VKAPIError as e:
+              log.error(f"Couldn't get new post id for group_id = {vk_id}. Error: {e}")
+              if post_id is None:
+                  raise ValueError(f"Couldn't get new post id for group_id = {vk_id}")
 
         unique_ids = set()
         unique_posts = []
