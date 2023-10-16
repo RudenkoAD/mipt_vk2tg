@@ -23,11 +23,18 @@ logger = setup_logger("mipt")
 # Define emojis
 CHECKMARK_EMOJI = "✅"
 CROSS_EMOJI = "❌"
+import sys
 import traceback
 
 async def handle_exception(bot):
-  text = traceback.format_exc()[:-3998]
-  await send_message(bot, TG_CREATOR_ID, text, None)
+    error_type, error_value, error_traceback = sys.exc_info()
+    last_frame = traceback.extract_tb(error_traceback)[-1]
+    error_line = last_frame.lineno
+    root_error = traceback.format_exception(error_type, error_value, error_traceback)[-1].strip()
+    root_line = traceback.extract_tb(error_traceback)[0].lineno
+    message = f"{error_value}\nLine {error_line}\nRoot Error: {root_error}\nLine {root_line}"
+    await send_message(bot, TG_CREATOR_ID, message, None)
+
 
   
 async def put_message_into_queue(user_ids, caption, media=None):
