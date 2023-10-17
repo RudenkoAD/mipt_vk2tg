@@ -29,11 +29,15 @@ import traceback
 async def handle_exception(bot):
     error_type, error_value, error_traceback = sys.exc_info()
     last_frame = traceback.extract_tb(error_traceback)[-1]
+    file_name = last_frame.filename
     error_line = last_frame.lineno
+    root_error_tb = traceback.extract_tb(error_traceback)[0]
+    root_file_name = root_error_tb.filename
+    root_line = root_error_tb.lineno
     root_error = traceback.format_exception(error_type, error_value, error_traceback)[-1].strip()
-    root_line = traceback.extract_tb(error_traceback)[0].lineno
-    message = f"{error_value}\nLine {error_line}\nRoot Error: {root_error}\nLine {root_line}"
+    message = f"{error_value}\n{file_name}: Line {error_line}\nRoot Error ({root_file_name}: Line {root_line}): {root_error}"
     await send_message(bot, TG_CREATOR_ID, message, None)
+
 
 
   
@@ -85,10 +89,10 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
                     parse_mode="HTML",
                     disable_notification=silent,
                     disable_web_page_preview=True,
-                    read_timeout=10,
-                    write_timeout=10,
-                    connect_timeout=10,
-                    pool_timeout=10
+                    read_timeout=100,
+                    write_timeout=100,
+                    connect_timeout=100,
+                    pool_timeout=100
                 )
             break
             
