@@ -104,12 +104,13 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
         except NetworkError as e:
             logger.error(f"Network error: {e}")
             await handle_exception(bot)
-            await asyncio.sleep(1800)
-            
+            await asyncio.sleep(30)
+        except TimeoutError as e:
+            handle_exception(bot)
         except Exception as e:
             logger.error(f"Unknown error: {e}")
             await handle_exception(bot)
-            await asyncio.sleep(1800)
+            await asyncio.sleep(30)
 
 async def wrap_and_put_into_queue(user_ids, group_name, post):
     """Wraps a post and puts it into the queue for each user id in the list"""
