@@ -16,6 +16,7 @@ import datetime
 from attachmentmanager import get_attachments_links
 from vk_post_parser import get_post_link, get_message_texts
 from text_storage import TextStorage
+from aiohttp.client_exceptions import ClientOSError, ClientConnectionError
 #instantiate managers
 dbmanager = sqlcrawler()
 vkmanager = VkFetcher(dbmanager=dbmanager)
@@ -98,6 +99,7 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
             
         except RetryAfter as e:
             logger.error(f"telegram throttled us, waiting for {e.retry_after} seconds")
+            await handle_exception(bot)
             await asyncio.sleep(e.retry_after + 1)
             
         except Forbidden:
@@ -111,6 +113,7 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
             await asyncio.sleep(30)
         except TimeoutError as e:
             handle_exception(bot)
+            await asyncio.sleep(1)
         except Exception as e:
             logger.error(f"Unknown error: {e}")
             await handle_exception(bot)
@@ -143,6 +146,10 @@ async def get_and_fetch_one(context):
     for post in reversed(posts):
       await handle_post(post)
     logger.debug(f"finished fetching from group_id = {group_id}")
+  except ClientOSError as e:
+      pass
+  except ClientConnectionError as e:
+      pass
   except Exception as e:
     logger.error(f"fetching from group_id = {group_id} failed: {e.args}")
     await handle_exception(context.bot)
@@ -323,7 +330,7 @@ def main():
 
   setup_fetchers(job_queue, dbmanager)
   job_queue.run_repeating(send_message_from_queue,
-                            interval=1)
+                            interval=0.3)
   logger.info("starting app")
   application.run_polling(allowed_updates=Update.ALL_TYPES)
   logger.info("ended app")
