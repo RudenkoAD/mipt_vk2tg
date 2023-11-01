@@ -114,6 +114,7 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
               for photo in media:
                 dot_pos = photo.media.find(".")
                 new_media.append(InputMediaPhoto("https://sun9-50" + photo.media[dot_pos:]))
+              media = new_media
             await handle_exception(bot)
             await asyncio.sleep(1)
         except TimeoutError as e:
