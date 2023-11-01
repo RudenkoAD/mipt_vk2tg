@@ -109,8 +109,10 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
             
         except NetworkError as e:
             logger.error(f"Network error: {e}")
+            if (("wrong file identifier/http url specified" in str(e)) or ("wrong type of the web page content" in str(e))) and media:
+              media = [InputMediaPhoto("https://sun9-50" + photo.media[15:]) for photo in media]
             await handle_exception(bot)
-            await asyncio.sleep(30)
+            await asyncio.sleep(1)
         except TimeoutError as e:
             handle_exception(bot)
             await asyncio.sleep(1)
