@@ -17,13 +17,15 @@ from attachmentmanager import get_attachments_links
 from vk_post_parser import get_post_link, get_message_texts
 from text_storage import TextStorage
 from aiohttp.client_exceptions import ClientOSError, ClientConnectionError
+from classes import Group, Folder, Link, QueueMessage
 #instantiate managers
 dbmanager = sqlcrawler()
 vkmanager = VkFetcher(dbmanager=dbmanager)
 logger = setup_logger("mipt")
 # Define emojis
-CHECKMARK_EMOJI = "✅"
-CROSS_EMOJI = "❌"
+UNSUBSCRIBED = "❌"
+SUBSCRIBED_WITH_NOTIFICATIONS = "🔔"
+SUBSCRIBED_WITHOUT_NOTIFICATIONS = "🔕"
 import sys
 import traceback
 
@@ -39,13 +41,13 @@ async def handle_exception(bot):
     message = f"{error_value}\n{file_name}: Line {error_line}\nRoot Error ({root_file_name}: Line {root_line}): {root_error}"
     await send_message(bot, TG_CREATOR_ID, message, None)
 
-
-
   
-async def put_message_into_queue(user_ids, caption, media=None):
+async def put_message_into_queue(user_ids, caption, media=None, notifications=None):
+  if notifications is None:
+    notifications = [True for i in user_ids]
   media = json.dumps(media)
-  for user_id in user_ids:
-    dbmanager.put_message_into_queue(user_id, caption, media)
+  for i in range(len(user_ids)):
+    dbmanager.put_message_into_queue(user_ids[i], caption, media, notifications[i])
 
 async def send_message_from_queue(context):
   message = dbmanager.get_message_from_queue()
@@ -118,7 +120,7 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
             await handle_exception(bot)
             await asyncio.sleep(1)
         except TimeoutError as e:
-            handle_exception(bot)
+            await handle_exception(bot)
             await asyncio.sleep(1)
         except Exception as e:
             logger.error(f"Unknown error: {e}")
@@ -128,17 +130,15 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
 async def wrap_and_put_into_queue(user_ids, group_name, post):
     """Wraps a post and puts it into the queue for each user id in the list"""
     media = get_attachments_links(post.attachments)
-    
     # limit media to 10 links only
     media = media[:10]
     if len(media) > 10:
         logger.warning("we've just cut the media, check this post")
-    
     photos = [i.link for i in media if i.attachment_type == "photo"]
     post_texts = get_message_texts(group_name, post, media)
-    
+    notifications = [dbmanager.subscription_status(user_id, post.owner_id) == 1 for user_id in user_ids]
     for i, post_text in enumerate(post_texts):
-        await put_message_into_queue(user_ids, post_text, photos if i == 0 else None)
+        await put_message_into_queue(user_ids, post_text, photos if i == 0 else None, notifications=notifications)
         logger.debug(f"put message into queue for users {user_ids}")
 
 
@@ -160,21 +160,27 @@ async def get_and_fetch_one(context):
     logger.error(f"fetching from group_id = {group_id} failed: {e.args}")
     await handle_exception(context.bot)
 
-async def handle_post(post, special_user_destination=None, special_group_name=None, special_group_id=None):
+async def handle_post(post):
     """Wraps a post and puts it into the queue for each user id in the list"""
-    group_id = post.owner_id if special_group_id is None else special_group_id
+    group_id = post.owner_id
     logger.debug(f"starting make_post: {get_post_link(post.id, group_id)}")
     
-    group_name = dbmanager.get_group_by_id(group_id).group_name if special_group_name is None else special_group_name
-    user_ids = dbmanager.get_subscribers(group_id) if special_user_destination is None else special_user_destination
+    group_name = dbmanager.get_group_by_id(group_id).group_name
+    user_ids = dbmanager.get_subscribers(group_id)
     
     await wrap_and_put_into_queue(user_ids, group_name, post)
     
     if post.copy_history is not None:
         for repost in post.copy_history:
-            await handle_post(repost, special_user_destination=user_ids, special_group_name="репоста, прикрепленного к посту выше", special_group_id=group_id) #recursion if there is a repost inside this post
+            await handle_repost(repost, user_ids=user_ids, group_name="репоста, прикеплённого к посту выше") #recursion if there is a repost inside this post
     
     dbmanager.update_post_id(group_id, post.id)
+
+async def handle_repost(post, user_ids, group_name):
+    """Wraps a post and puts it into the queue for each user id in the list"""
+    group_id = post.owner_id
+    logger.debug(f"starting make_post: {get_post_link(post.id, group_id)}")
+    await wrap_and_put_into_queue(user_ids, group_name, post)
 
 def setup_fetchers(job_queue, dbmanager:sqlcrawler):
   logger.info("started setup_fetchers")
@@ -264,6 +270,13 @@ async def answer_query_if_not_expired(query):
   except Exception:
     return 0
 
+def get_emoji(user_id, group_id):
+  if dbmanager.subscription_status(user_id, group_id) == 1:
+    return SUBSCRIBED_WITH_NOTIFICATIONS
+  elif dbmanager.subscription_status(user_id, group_id) == 2:
+    return SUBSCRIBED_WITHOUT_NOTIFICATIONS
+  else:
+    return UNSUBSCRIBED
 
 async def draw_folder(query, user_id ,folder_id, folder_page):
   folder = dbmanager.get_folder_by_id(folder_id)
@@ -282,7 +295,7 @@ async def draw_folder(query, user_id ,folder_id, folder_page):
   keyboard = \
   [[InlineKeyboardButton(f"{subfolder.folder_name}", callback_data=f"F_{subfolder.folder_id}_0")]
     for subfolder in subfolders if folder_page==0]+\
-  [[InlineKeyboardButton(f"{CHECKMARK_EMOJI if dbmanager.is_subscribed(user_id, group.group_id) else CROSS_EMOJI} {group.group_name}",
+  [[InlineKeyboardButton(f"{get_emoji(user_id, group.group_id)} {group.group_name}",
                          callback_data=f"G_{folder.folder_id}_{group.group_id}_{folder_page}"), InlineKeyboardButton("ССЫЛКА", url=group.group_link)] for group in data[folder_page*5:folder_page*5+5]]
   if len(data) > 5:
     if folder_page == 0:
@@ -316,7 +329,7 @@ async def group(update: Update, context: ContextTypes.DEFAULT_TYPE):
   await answer_query_if_not_expired(query)
   folder_id = int(query.data.split("_")[1])
   folder_page = int(query.data.split("_")[3])
-  dbmanager.flip_subscribe(user_id, int(query.data.split("_")[2]))
+  dbmanager.change_subscribe(user_id, int(query.data.split("_")[2]))
   await draw_folder(query, user_id, folder_id, folder_page)
 
 def main():

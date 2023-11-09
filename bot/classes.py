@@ -19,7 +19,7 @@ class Folder:
 class Link:
     user_id: int
     group_id: int
-    active: bool
+    active: int #0 if not subscribed, 1 if subscribed with notifications, 2 if subscribed without notifications
 
 @dataclass
 class QueueMessage:
@@ -27,3 +27,4 @@ class QueueMessage:
     chat_id: int
     caption: str
     media: str = None
+    notifications: int = 1

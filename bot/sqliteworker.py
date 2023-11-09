@@ -1,5 +1,5 @@
 import sqlite3
-from classes import QueueMessage, Group, Folder
+from classes import QueueMessage, Group, Folder, Link
 class sqlcrawler:
 
     def __init__(self, db_path="database.sqlite"):
@@ -15,8 +15,6 @@ class sqlcrawler:
             self.conn.commit()
         except sqlite3.Error as e:
             print("SQLite error:", e)
-
-    # ... Implement your other methods similarly ...
 
     def get_group_by_name(self, group_name):
         self.execute("SELECT * FROM groups WHERE group_name = ?", (group_name,))
@@ -66,12 +64,12 @@ class sqlcrawler:
         ans = self.cursor.fetchall()
         return [data[0] for data in ans]
 
-    def is_subscribed(self, user_id, group_id):
+    def subscription_status(self, user_id, group_id):
         if group_id is not None:
             self.execute("SELECT active FROM links WHERE group_id = ? AND user_id = ?", (group_id, user_id))
             ans = self.cursor.fetchone()
-            return ans[0] if ans else False
-        return False
+            return int(ans[0]) if ans else 0
+        return 0
 
     def get_message_from_queue(self):
         self.execute("SELECT * FROM queue LIMIT 1")
@@ -83,29 +81,29 @@ class sqlcrawler:
         message = self.cursor.fetchone()
         return message if message else None
 
-    def put_message_into_queue(self, chat_id, caption, media:str=None):
-        self.execute(f"INSERT INTO queue (chat_id, caption, media) VALUES (?, ?, ?)", (chat_id, caption, media))
+    def put_message_into_queue(self, chat_id, caption, media:str=None, notifications:int=1):
+        self.execute(f"INSERT INTO queue (chat_id, caption, media, notifications) VALUES (?, ?, ?, ?)", (chat_id, caption, media, notifications))
 
     def update_post_id(self, group_id, post_id):
         self.execute("UPDATE groups SET post_id = ? WHERE group_id = ?", (post_id, group_id))
 
     def remove_user(self, user_id):
         self.execute("DELETE FROM links WHERE user_id = ?", (user_id,))
-        # Add a corresponding deletion in any other relevant tables
-        # e.g., if there are more tables with user references.
+        self.execute("DELETE FROM queue WHERE chat_id = ?", (user_id,))
 
     def delete_queue(self):
         self.execute("DELETE FROM queue")
 
+    def change_subscribe(self, user_id, group_id):
+      self.execute("SELECT * FROM links WHERE group_id = ? AND user_id = ?", (group_id, user_id))
+      data = self.cursor.fetchone()
+      if data:
+        #cycle between 0, 1, and 2
+        new_data = (data[2] + 1) % 3
+        self.execute("UPDATE links SET active = ? WHERE group_id = ? AND user_id = ?", (new_data, group_id, user_id))
+      else:
+        self.execute("INSERT INTO links (user_id, group_id, active) VALUES (?, ?, ?)", (user_id, group_id, 1))
 
-    def flip_subscribe(self, user_id, group_id):
-        self.execute("SELECT * FROM links WHERE group_id = ? AND user_id = ?", (group_id, user_id))
-        data = self.cursor.fetchone()
-        if data:
-            self.execute("UPDATE links SET active = ? WHERE group_id = ? AND user_id = ?", (not data[2], group_id, user_id))
-        else:
-            self.execute("INSERT INTO links (user_id, group_id, active) VALUES (?, ?, ?)", (user_id, group_id, True))
-    
     def __del__(self):
         self.cursor.close()
         self.conn.close()
@@ -113,7 +111,7 @@ class sqlcrawler:
 # Usage:
 import json
 if __name__ == "__main__":
-    db_path = 'database.sqlite'  # Provide the path to your SQLite database file
+    db_path = 'database.sqlite'
     crawler = sqlcrawler(db_path)
     confirm = input("are you sure you wanna delete queue?")
     if confirm == "yes":
