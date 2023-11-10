@@ -171,15 +171,15 @@ async def handle_post(post):
     
     if post.copy_history is not None:
         for repost in post.copy_history:
-            await handle_repost(repost, user_ids=user_ids, group_name="репоста, прикеплённого к посту выше", notifications=notifications_list) #recursion if there is a repost inside this post
+            await handle_repost(repost, user_ids=user_ids, group_name="репоста, прикеплённого к посту выше", notifications_list=notifications_list) #recursion if there is a repost inside this post
     
     dbmanager.update_post_id(group_id, post.id)
 
-async def handle_repost(post, user_ids, group_name):
+async def handle_repost(post, user_ids, group_name, notifications_list):
     """Wraps a post and puts it into the queue for each user id in the list"""
     group_id = post.owner_id
     logger.debug(f"starting make_post: {get_post_link(post.id, group_id)}")
-    await wrap_and_put_into_queue(user_ids, group_name, post)
+    await wrap_and_put_into_queue(user_ids, group_name, post, notifications_list)
 
 def setup_fetchers(job_queue, dbmanager:sqlcrawler):
   logger.info("started setup_fetchers")
