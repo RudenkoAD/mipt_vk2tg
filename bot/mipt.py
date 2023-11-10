@@ -59,7 +59,7 @@ async def send_message_from_queue(context):
     except Exception:
       await handle_exception(context.bot)
       media = []
-    await send_message(context.bot, chat_id=message.chat_id, caption=message.caption, media=media)
+    await send_message(context.bot, chat_id=message.chat_id, caption=message.caption, media=media, silent=message.notifications)
     logger.info(f"sent post from queue to user {message.chat_id}")
     dbmanager.del_message_from_queue(message.message_id)
   else:
@@ -127,7 +127,7 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
             await handle_exception(bot)
             await asyncio.sleep(30)
 
-async def wrap_and_put_into_queue(user_ids, group_name, post):
+async def wrap_and_put_into_queue(user_ids, group_name, post, notifications_list):
     """Wraps a post and puts it into the queue for each user id in the list"""
     media = get_attachments_links(post.attachments)
     # limit media to 10 links only
@@ -136,9 +136,8 @@ async def wrap_and_put_into_queue(user_ids, group_name, post):
         logger.warning("we've just cut the media, check this post")
     photos = [i.link for i in media if i.attachment_type == "photo"]
     post_texts = get_message_texts(group_name, post, media)
-    notifications = [dbmanager.subscription_status(user_id, post.owner_id) == 1 for user_id in user_ids]
     for i, post_text in enumerate(post_texts):
-        await put_message_into_queue(user_ids, post_text, photos if i == 0 else None, notifications=notifications)
+        await put_message_into_queue(user_ids, post_text, photos if i == 0 else None, notifications=notifications_list)
         logger.debug(f"put message into queue for users {user_ids}")
 
 
@@ -167,12 +166,12 @@ async def handle_post(post):
     
     group_name = dbmanager.get_group_by_id(group_id).group_name
     user_ids = dbmanager.get_subscribers(group_id)
-    
-    await wrap_and_put_into_queue(user_ids, group_name, post)
+    notifications_list = [dbmanager.subscription_status(user_id, post.owner_id) == 1 for user_id in user_ids]
+    await wrap_and_put_into_queue(user_ids, group_name, post, notifications_list)
     
     if post.copy_history is not None:
         for repost in post.copy_history:
-            await handle_repost(repost, user_ids=user_ids, group_name="репоста, прикеплённого к посту выше") #recursion if there is a repost inside this post
+            await handle_repost(repost, user_ids=user_ids, group_name="репоста, прикеплённого к посту выше", notifications=notifications_list) #recursion if there is a repost inside this post
     
     dbmanager.update_post_id(group_id, post.id)
 
@@ -348,7 +347,7 @@ def main():
   application.add_handler(CallbackQueryHandler(group, pattern="^G"))
 
   setup_fetchers(job_queue, dbmanager)
-  sleep(5)
+  #sleep(5)
   job_queue.run_repeating(send_message_from_queue,
                             interval=0.3)
   logger.info("starting app")

@@ -27,4 +27,4 @@ class QueueMessage:
     chat_id: int
     caption: str
     media: str = None
-    notifications: int = 1
+    notifications: bool = True

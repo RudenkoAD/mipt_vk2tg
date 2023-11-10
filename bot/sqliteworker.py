@@ -60,7 +60,7 @@ class sqlcrawler:
         return [Folder(*x) for x in ans]
 
     def get_subscribers(self, group_id):
-        self.execute("SELECT user_id FROM links WHERE group_id = ? AND active = ?", (group_id, True))
+        self.execute("SELECT user_id FROM links WHERE group_id = ? AND active > ?", (group_id, 0))
         ans = self.cursor.fetchall()
         return [data[0] for data in ans]
 
