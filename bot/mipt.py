@@ -59,7 +59,7 @@ async def send_message_from_queue(context):
     except Exception:
       await handle_exception(context.bot)
       media = []
-    await send_message(context.bot, chat_id=message.chat_id, caption=message.caption, media=media, silent=message.notifications)
+    await send_message(context.bot, chat_id=message.chat_id, caption=message.caption, media=media, silent=not bool(message.notifications))
     logger.info(f"sent post from queue to user {message.chat_id}")
     dbmanager.del_message_from_queue(message.message_id)
   else:
