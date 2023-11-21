@@ -80,10 +80,10 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
                     parse_mode="HTML",
                     api_kwargs={"disable_web_page_preview": True},
                     disable_notification=silent,
-                    read_timeout=10,
-                    write_timeout=10,
-                    connect_timeout=10,
-                    pool_timeout=10
+                    read_timeout=100,
+                    write_timeout=100,
+                    connect_timeout=100,
+                    pool_timeout=100
                 )
             else:
                 await bot.send_message(
@@ -118,10 +118,10 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
                 new_media.append(InputMediaPhoto("https://sun9-50" + photo.media[dot_pos:]))
               media = new_media
             await handle_exception(bot)
-            await asyncio.sleep(1)
+            await asyncio.sleep(10)
         except TimeoutError as e:
             await handle_exception(bot)
-            await asyncio.sleep(1)
+            await asyncio.sleep(10)
         except Exception as e:
             logger.error(f"Unknown error: {e}")
             await handle_exception(bot)
