@@ -334,6 +334,32 @@ async def group(update: Update, context: ContextTypes.DEFAULT_TYPE):
   dbmanager.change_subscribe(user_id, int(query.data.split("_")[2]))
   await draw_folder(query, user_id, folder_id, folder_page)
 
+#admin commands
+
+async def add_folder(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  if update.effective_user.id==TG_CREATOR_ID:
+    if context.args==[]:
+      await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Пожалуйста используйте эту команду с аргументом:\n/add_folder <название папки> <название parent-папки>")
+    else:
+      dbmanager.insert_folder(context.args[0], context.args[1] if len(context.args)>1 else None)
+      await context.bot.send_message(chat_id=update.effective_chat.id,
+                                    text="Папка добавлена")
+  return
+
+async def add_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  if update.effective_user.id==TG_CREATOR_ID:
+    if len(context.args)<4:
+      await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Пожалуйста используйте эту команду с аргументом:\n/add_group <название группы> <id группы> <ссылка на группу> <название папки>")
+    else:
+      dbmanager.insert_group(context.args[0], context.args[1], context.args[2], context.args[3])
+      await context.bot.send_message(chat_id=update.effective_chat.id,
+                                    text="Группа добавлена")
+  return
+
 def main():
   print("starting")
 
@@ -345,6 +371,8 @@ def main():
   application.add_handler(CommandHandler('announce', announce))
   application.add_handler(CommandHandler('announce_silent', announce))
   application.add_handler(CommandHandler('list', list_users))
+  application.add_handler(CommandHandler('add_folder', add_folder))
+  application.add_handler(CommandHandler('add_group', add_group))
   application.add_handler(CallbackQueryHandler(menu, pattern="^MENU$"))
   application.add_handler(CallbackQueryHandler(folder, pattern="^F"))
   application.add_handler(CallbackQueryHandler(group, pattern="^G"))
