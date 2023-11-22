@@ -18,6 +18,7 @@ from vk_post_parser import get_post_link, get_message_texts
 from text_storage import TextStorage
 from aiohttp.client_exceptions import ClientOSError, ClientConnectionError
 from classes import Group, Folder, Link, QueueMessage
+from vkbottle.exception_factory import VKAPIError
 #instantiate managers
 dbmanager = sqlcrawler()
 vkmanager = VkFetcher(dbmanager=dbmanager)
@@ -155,6 +156,8 @@ async def get_and_fetch_one(context):
       pass
   except ClientConnectionError as e:
       pass
+  except VKAPIError as e:
+    await asyncio.sleep(10)
   except Exception as e:
     logger.error(f"fetching from group_id = {group_id} failed: {e.args}")
     await handle_exception(context.bot)
