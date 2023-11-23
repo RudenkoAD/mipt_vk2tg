@@ -21,6 +21,12 @@ class sqlcrawler:
         ans = self.cursor.fetchone()
         return Group(*ans) if ans else None
 
+    def insert_group(self, group_name, group_id, folder, post_id=None):
+        self.execute("INSERT INTO groups (group_name, group_id, group_link, folder) VALUES (?, ?, ?, ?)", (group_name, group_id, folder, post_id))
+    
+    def insert_folder(self, folder_name, parent_name=None):
+        self.execute("INSERT INTO folders (folder_name, parent_name) VALUES (?, ?)", (folder_name, parent_name))
+
     def get_all_user_ids(self):
         self.execute("SELECT DISTINCT user_id FROM links WHERE active = ?", (True,))
         users = self.cursor.fetchall()
