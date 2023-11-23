@@ -239,6 +239,42 @@ async def list_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info(f"denied use of /list to user_id = {update.effective_user.id}")
     return
 
+async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  '''
+  a command that finds a group by name and shows the user the same type of layout as in /start to subscibe to it
+  '''
+  if context.args == []:
+    await context.bot.send_message(
+      chat_id=update.effective_chat.id,
+      text="Пожалуйста используйте эту команду с аргументом:\n/find <название группы>")
+  else:
+    group_name = " ".join(context.args)
+    groups = dbmanager.get_groups_by_subname(group_name)
+    user_id = update.effective_chat.id
+    if groups == []:
+      await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Ничего не найдено, попробуйте другое название")
+    else:
+      keyboard = [[InlineKeyboardButton(f"{get_emoji(user_id, group.group_id)} {group.group_name}",
+                         callback_data=f"S_{group.group_id}"), InlineKeyboardButton("ССЫЛКА", url=group.group_link)] for group in groups]
+      await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Вот что я нашёл:\nЕсли ваша группа не в списке, то попробуйте более точное название, или напишите в /contact и я добавлю её",
+        reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def react_to_find(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  query = update.callback_query
+  await answer_query_if_not_expired(query)
+  group_id = int(query.data.split("_")[1])
+  user_id = query.from_user.id
+  group_name = dbmanager.get_group_by_id(group_id).group_name
+  groups = dbmanager.get_groups_by_subname(group_name)
+  dbmanager.change_subscribe(user_id, group_id)
+  keyboard = [[InlineKeyboardButton(f"{get_emoji(user_id, group.group_id)} {group.group_name}",
+                         callback_data=f"S_{group.group_id}"), InlineKeyboardButton("ССЫЛКА", url=group.group_link)] for group in groups]
+  await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(keyboard))
+
 async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
   if context.args == []:
     await context.bot.send_message(
@@ -371,14 +407,15 @@ def main():
   application.add_handler(CommandHandler('announce', announce))
   application.add_handler(CommandHandler('announce_silent', announce))
   application.add_handler(CommandHandler('list', list_users))
+  application.add_handler(CommandHandler('find', find))
   application.add_handler(CommandHandler('add_folder', add_folder))
   application.add_handler(CommandHandler('add_group', add_group))
   application.add_handler(CallbackQueryHandler(menu, pattern="^MENU$"))
   application.add_handler(CallbackQueryHandler(folder, pattern="^F"))
+  application.add_handler(CallbackQueryHandler(react_to_find, pattern="^S"))
   application.add_handler(CallbackQueryHandler(group, pattern="^G"))
 
   setup_fetchers(job_queue, dbmanager)
-  #sleep(5)
   job_queue.run_repeating(send_message_from_queue,
                             interval=0.3)
   logger.info("starting app")

@@ -53,7 +53,7 @@ class VkFetcher:
 
 
         log.error(f"Too many posts found for {vk_id}. Maybe something is wrong")
-        raise ValueError("Too many posts found")
+        raise ValueError(f"Too many posts found for {vk_id}")
 
     async def get_post_by_id(self, vk_id, post_id):
         for i in range(20):

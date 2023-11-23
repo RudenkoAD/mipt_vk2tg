@@ -56,6 +56,11 @@ class sqlcrawler:
         self.execute("SELECT * FROM groups WHERE folder = ? ORDER BY group_name ASC", (folder,))
         ans = self.cursor.fetchall()
         return [Group(*x) for x in ans]
+    
+    def get_groups_by_subname(self, subname):
+        self.execute("SELECT * FROM groups WHERE group_name LIKE ? ORDER BY group_name ASC", (f"%{subname}%",))
+        ans = self.cursor.fetchmany(5)
+        return [Group(*x) for x in ans]
 
     def get_folders(self, parent_name=None):
         if parent_name is None:
@@ -119,6 +124,4 @@ import json
 if __name__ == "__main__":
     db_path = 'database.sqlite'
     crawler = sqlcrawler(db_path)
-    confirm = input("are you sure you wanna delete queue?")
-    if confirm == "yes":
-        crawler.delete_queue()
+    print(crawler.get_groups_by_subname("МФТИ"))
