@@ -249,7 +249,7 @@ async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
       text="Пожалуйста используйте эту команду с аргументом:\n/find <название группы>")
   else:
     group_name = " ".join(context.args)
-    groups = dbmanager.get_groups_by_subname(group_name)
+    groups = dbmanager.search_groups(group_name)
     user_id = update.effective_chat.id
     if groups == []:
       await context.bot.send_message(
@@ -269,7 +269,7 @@ async def react_to_find(update: Update, context: ContextTypes.DEFAULT_TYPE):
   group_id = int(query.data.split("_")[1])
   user_id = query.from_user.id
   group_name = dbmanager.get_group_by_id(group_id).group_name
-  groups = dbmanager.get_groups_by_subname(group_name)
+  groups = dbmanager.search_groups(group_name)
   dbmanager.change_subscribe(user_id, group_id)
   keyboard = [[InlineKeyboardButton(f"{get_emoji(user_id, group.group_id)} {group.group_name}",
                          callback_data=f"S_{group.group_id}"), InlineKeyboardButton("ССЫЛКА", url=group.group_link)] for group in groups]
