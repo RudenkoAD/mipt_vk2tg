@@ -57,7 +57,10 @@ class sqlcrawler:
         ans = self.cursor.fetchall()
         return [Group(*x) for x in ans]
     
-    def get_groups_by_subname(self, subname):
+    def search_groups(self, subname):
+        if subname.startswith("http"):
+            stripped = subname.split("/")[-1]
+            self.execute("SELECT * FROM groups WHERE group_link LIKE ? ORDER BY group_name ASC", (f"%{stripped}%",))
         self.execute("SELECT * FROM groups WHERE group_name LIKE ? ORDER BY group_name ASC", (f"%{subname}%",))
         ans = self.cursor.fetchmany(5)
         return [Group(*x) for x in ans]
