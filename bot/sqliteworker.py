@@ -58,12 +58,13 @@ class sqlcrawler:
         return [Group(*x) for x in ans]
     
     def search_groups(self, subname):
-        if subname.startswith("http"):
-            stripped = subname.split("/")[-1]
-            self.execute("SELECT * FROM groups WHERE group_link LIKE ? ORDER BY group_name ASC", (f"%{stripped}%",))
+      if subname.startswith("http"):
+        stripped = subname.split("/")[-1]
+        self.execute("SELECT * FROM groups WHERE group_link LIKE ? ORDER BY group_name ASC", (f"%{stripped}%",))
+      else:
         self.execute("SELECT * FROM groups WHERE group_name LIKE ? ORDER BY group_name ASC", (f"%{subname}%",))
-        ans = self.cursor.fetchmany(5)
-        return [Group(*x) for x in ans]
+      ans = self.cursor.fetchmany(5)
+      return [Group(*x) for x in ans]
 
     def get_folders(self, parent_name=None):
         if parent_name is None:
@@ -127,4 +128,4 @@ import json
 if __name__ == "__main__":
     db_path = 'database.sqlite'
     crawler = sqlcrawler(db_path)
-    print(crawler.get_groups_by_subname("МФТИ"))
+    print(crawler.search_groups("https://vk.com/128"))
