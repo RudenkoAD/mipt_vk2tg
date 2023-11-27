@@ -19,6 +19,7 @@ from text_storage import TextStorage
 from aiohttp.client_exceptions import ClientOSError, ClientConnectionError
 from classes import Group, Folder, Link, QueueMessage
 from vkbottle.exception_factory import VKAPIError
+from random import randint
 #instantiate managers
 dbmanager = sqlcrawler()
 vkmanager = VkFetcher(dbmanager=dbmanager)
@@ -102,7 +103,6 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
             
         except RetryAfter as e:
             logger.error(f"telegram throttled us, waiting for {e.retry_after} seconds")
-            await handle_exception(bot)
             await asyncio.sleep(e.retry_after + 1)
             
         except Forbidden:
@@ -112,14 +112,16 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
             
         except NetworkError as e:
             logger.error(f"Network error: {e}")
-            if (("wrong file identifier/http url specified" in str(e)) or ("wrong type of the web page content" in str(e))) and media:
+            if ("Chat not found" in str(e)):
+              dbmanager.remove_user(chat_id)
+              break
+            if (("wrong file identifier/http url specified" in str(e)) or ("wrong type of the web page content" in str(e))):
               new_media = []
               for photo in media:
                 dot_pos = photo.media.find(".")
-                new_media.append(InputMediaPhoto("https://sun9-50" + photo.media[dot_pos:]))
+                new_media.append(InputMediaPhoto(r"https://pp" + photo.media[dot_pos:]))
               media = new_media
             await handle_exception(bot)
-            await asyncio.sleep(10)
         except TimeoutError as e:
             await handle_exception(bot)
             await asyncio.sleep(10)
