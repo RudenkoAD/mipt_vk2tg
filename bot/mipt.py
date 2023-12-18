@@ -26,8 +26,8 @@ vkmanager = VkFetcher(dbmanager=dbmanager)
 logger = setup_logger("mipt")
 # Define emojis
 UNSUBSCRIBED = "❌"
-SUBSCRIBED_WITH_NOTIFICATIONS = "🔔"
-SUBSCRIBED_WITHOUT_NOTIFICATIONS = "🔕"
+SUBSCRIBED_WITH_NOTIFICATIONS = "🔊"
+SUBSCRIBED_WITHOUT_NOTIFICATIONS = "🔇"
 import sys
 import traceback
 
@@ -389,11 +389,20 @@ async def add_folder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.args==[]:
       await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Пожалуйста используйте эту команду с аргументом:\n/add_folder <название папки> <название parent-папки>")
-    else:
+        text="Пожалуйста используйте эту команду с аргументом:\n/add_folder\n<название папки>\n<название parent-папки>")
+      return
+    try:
+      texts = update.message.text.split("\n")
+      name = texts[1]
+      parent = texts[2] if len(texts)>2 else None
+      dbmanager.insert_folder(name, parent if parent else None)
       dbmanager.insert_folder(context.args[0], context.args[1] if len(context.args)>1 else None)
       await context.bot.send_message(chat_id=update.effective_chat.id,
                                     text="Папка добавлена")
+    except:
+      await context.bot.send_message(chat_id=update.effective_chat.id,
+                                    text="Что-то пошло не так. Не забывай что аргументы через enter")
+  
   return
 
 async def add_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -401,9 +410,10 @@ async def add_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args)<4:
       await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Пожалуйста используйте эту команду с аргументом:\n/add_group <название группы> <id группы> <ссылка на группу> <название папки>")
+        text="Пожалуйста используйте эту команду с аргументом:\n/add_group\n<название группы>\n<id группы>\n<ссылка на группу>\n<название папки>")
     else:
-      dbmanager.insert_group(context.args[0], context.args[1], context.args[2], context.args[3])
+      texts = update.message.text.split("\n")
+      dbmanager.insert_group(texts[1], texts[2], texts[3], texts[4])
       await context.bot.send_message(chat_id=update.effective_chat.id,
                                     text="Группа добавлена")
   return
