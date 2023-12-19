@@ -20,6 +20,8 @@ from aiohttp.client_exceptions import ClientOSError, ClientConnectionError
 from classes import Group, Folder, Link, QueueMessage
 from vkbottle.exception_factory import VKAPIError
 from random import randint
+import urllib.request
+import os
 #instantiate managers
 dbmanager = sqlcrawler()
 vkmanager = VkFetcher(dbmanager=dbmanager)
@@ -57,7 +59,12 @@ async def send_message_from_queue(context):
     try:
       medias = json.loads(message.media)
       if medias is None: medias = []
-      media = [InputMediaPhoto(url) for url in medias]
+      #if the url failed previously and we've cached the media, upload it
+      for url in medias:
+        if f"{url}.jpg" in os.listdir("data"):
+          media.append(InputMediaPhoto(open({url}.jpg, "r")))
+      #if the media is not cached, try to get it from url
+      media = [ ]
     except Exception:
       await handle_exception(context.bot)
       media = []
@@ -116,11 +123,12 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
               dbmanager.remove_user(chat_id)
               break
             if (("wrong file identifier/http url specified" in str(e)) or ("wrong type of the web page content" in str(e))):
-              new_media = []
+              all_files = os.listdir("data")
+              for f in all_files:
+                os.remove(f)
+              #download new photos
               for photo in media:
-                dot_pos = photo.media.find(".")
-                new_media.append(InputMediaPhoto(r"https://pp" + photo.media[dot_pos:]))
-              media = new_media
+                urllib.request.urlretrieve(photo.media, f"{photo.media}.jpg")
             await handle_exception(bot)
         except TimeoutError as e:
             await handle_exception(bot)

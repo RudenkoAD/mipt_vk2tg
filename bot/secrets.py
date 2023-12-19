@@ -1,6 +1,7 @@
 import os
+import dotenv
+dotenv.load_dotenv()
 
-VK_APP_ID = os.environ['VK_APP_ID']
 TG_TOKEN = os.environ['TG_TOKEN']
 TG_CREATOR_ID = os.environ['TG_CREATOR_ID']
 VK_SERVICE_TOKEN = os.environ['VK_SERVICE_TOKEN']

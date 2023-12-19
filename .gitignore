@@ -5,3 +5,4 @@ bot/__pycache__/**
 *.log
 secrets.py
 bot/secrets.py
+.env
