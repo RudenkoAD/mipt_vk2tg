@@ -60,11 +60,13 @@ async def send_message_from_queue(context):
       medias = json.loads(message.media)
       if medias is None: medias = []
       #if the url failed previously and we've cached the media, upload it
+      media = []
       for url in medias:
         if f"{url}.jpg" in os.listdir("data"):
-          media.append(InputMediaPhoto(open({url}.jpg, "r")))
-      #if the media is not cached, try to get it from url
-      media = [ ]
+          media.append(InputMediaPhoto(open({url}.jpg, "rb")))
+        else:#if the media is not cached, try to get it from url
+          media.append(InputMediaPhoto(url))
+          
     except Exception:
       await handle_exception(context.bot)
       media = []
