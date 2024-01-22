@@ -127,7 +127,7 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
             if (("wrong file identifier/http url specified" in str(e)) or ("wrong type of the web page content" in str(e))):
               all_files = os.listdir("data")
               for f in all_files:
-                os.remove(f)
+                os.remove(os.path.join("data", f))
               #download new photos
               for photo in media:
                 urllib.request.urlretrieve(photo.media, f"{photo.media}.jpg")

@@ -3,7 +3,7 @@ import dotenv
 dotenv.load_dotenv()
 
 TG_TOKEN = os.environ['TG_TOKEN']
-TG_CREATOR_ID = os.environ['TG_CREATOR_ID']
+TG_CREATOR_ID = int(os.environ['TG_CREATOR_ID'])
 VK_SERVICE_TOKEN = os.environ['VK_SERVICE_TOKEN']
 VK_ACCESS_TOKEN = os.environ['VK_ACCESS_TOKEN']
 VK_SECURE_KEY = os.environ['VK_SECURE_KEY']
