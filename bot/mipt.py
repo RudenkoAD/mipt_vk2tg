@@ -2,7 +2,7 @@
 #pip.main(["install", "python-telegram-bot[job-queue]"])
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto, Bot, Update  #upm package(python-telegram-bot)
 from telegram.ext import CommandHandler, CallbackQueryHandler  #upm package(python-telegram-bot)
-from telegram.error import RetryAfter, BadRequest, NetworkError, Forbidden  #upm package(python-telegram-bot)
+from telegram.error import RetryAfter, BadRequest, NetworkError, Forbidden,   #upm package(python-telegram-bot)
 from telegram.ext import ApplicationBuilder, ContextTypes  #upm package(python-telegram-bot)
 from logger import setup_logger, clear_logs
 clear_logs()
@@ -118,7 +118,10 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
             logger.debug(f"user with id {chat_id} has blocked us")
             dbmanager.remove_user(chat_id)
             break
-            
+        except BadRequest:
+          if ("user_is_blocked" in str(e)):
+            dbmanager.remove_user(chat_id)
+            break
         except NetworkError as e:
             logger.error(f"Network error: {e}")
             if ("Chat not found" in str(e)):
