@@ -118,7 +118,7 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
             logger.debug(f"user with id {chat_id} has blocked us")
             dbmanager.remove_user(chat_id)
             break
-        except BadRequest:
+        except BadRequest as e:
           if ("user_is_blocked" in str(e)):
             dbmanager.remove_user(chat_id)
             break
