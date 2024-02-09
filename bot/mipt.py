@@ -43,6 +43,7 @@ async def handle_exception(bot):
     root_line = root_error_tb.lineno
     root_error = traceback.format_exception(error_type, error_value, error_traceback)[-1].strip()
     message = f"{error_value}\n{file_name}: Line {error_line}\nRoot Error ({root_file_name}: Line {root_line}): {root_error}"
+    logger.error(message)
     await send_message(bot, TG_CREATOR_ID, message, None)
 
   
@@ -54,6 +55,7 @@ async def put_message_into_queue(user_ids, caption, media=None, notifications=No
     dbmanager.put_message_into_queue(user_ids[i], caption, media, notifications[i])
 
 async def send_message_from_queue(context):
+  logger.debug("starting send_message_from_queue")
   message = dbmanager.get_message_from_queue()
   if message is not None:
     try:
@@ -78,9 +80,9 @@ async def send_message_from_queue(context):
 
 async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
     """Sends a message to a specified chat_id with optional media"""
+    logger.debug("starting send_message")
     if caption == "" or caption is None:
         return
-    
     while True:
         try:
             if media:
@@ -91,10 +93,10 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
                     parse_mode="HTML",
                     api_kwargs={"disable_web_page_preview": True},
                     disable_notification=silent,
-                    read_timeout=100,
-                    write_timeout=100,
-                    connect_timeout=100,
-                    pool_timeout=100
+                    read_timeout=10,
+                    write_timeout=10,
+                    connect_timeout=10,
+                    pool_timeout=10
                 )
             else:
                 await bot.send_message(
@@ -103,22 +105,22 @@ async def send_message(bot: Bot, chat_id, caption, media=None, silent=False):
                     parse_mode="HTML",
                     disable_notification=silent,
                     disable_web_page_preview=True,
-                    read_timeout=100,
-                    write_timeout=100,
-                    connect_timeout=100,
-                    pool_timeout=100
+                    read_timeout=10,
+                    write_timeout=10,
+                    connect_timeout=10,
+                    pool_timeout=10
                 )
             break
             
         except RetryAfter as e:
             logger.error(f"telegram throttled us, waiting for {e.retry_after} seconds")
-            await asyncio.sleep(e.retry_after + 1)
-            
+            await asyncio.sleep(e.retry_after + 1)            
         except Forbidden:
-            logger.debug(f"user with id {chat_id} has blocked us")
+            logger.warning(f"user with id {chat_id} has blocked us")
             dbmanager.remove_user(chat_id)
             break
         except BadRequest as e:
+          handle_exception(bot)
           if ("user_is_blocked" in str(e)):
             dbmanager.remove_user(chat_id)
             break
