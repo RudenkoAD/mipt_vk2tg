@@ -389,6 +389,22 @@ async def group(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 #admin commands
 
+async def adminhelp(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  if update.effective_user.id==TG_CREATOR_ID:
+    await context.bot.send_message(
+      chat_id=update.effective_chat.id,
+      text="""команды админа:
+/list
+/announce
+/announce_silent
+/add_folder
+/add_group
+""")
+    exit(0)
+  else:
+    logger.info(f"denied use of /stop to user_id = {update.effective_user.id}")
+    return
+
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
   if update.effective_user.id==TG_CREATOR_ID:
     await context.bot.send_message(
@@ -444,6 +460,7 @@ def main():
   application.add_handler(CommandHandler('contact', contact))
   application.add_handler(CommandHandler('announce', announce))
   application.add_handler(CommandHandler('announce_silent', announce))
+  application.add_handler(CommandHandler('help', adminhelp))
   application.add_handler(CommandHandler('list', list_users))
   application.add_handler(CommandHandler('find', find))
   application.add_handler(CommandHandler('add_folder', add_folder))
