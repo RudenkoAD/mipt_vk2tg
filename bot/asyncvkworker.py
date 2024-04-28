@@ -22,7 +22,7 @@ class VkFetcher:
         posts = []
         group = self.dbmanager.get_group_by_id(vk_id)
         post_id = group.post_id
-        POST_COUNT = 2
+        POST_COUNT = 10
         if post_id is None:
           try:
               response = await self.api.wall.get(owner_id=vk_id, count=POST_COUNT)
