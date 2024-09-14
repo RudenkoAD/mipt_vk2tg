@@ -7,9 +7,9 @@ from logger import setup_logger
 
 log = setup_logger("vk")
 
-async def exist_bigger_element(list_, element):
+def exist_bigger_element(list_, element):
     """Returns true if in list_ exists element bigger than element"""
-    return any(list_el > element for list_el in list_)
+    return any(list_el > element for list_el in list_ if list_el is not None)
 
 
 class VkFetcher:
@@ -40,7 +40,7 @@ class VkFetcher:
             new_posts = response.items
             new_posts_ids = [post.id for post in new_posts]
             posts.extend(new_posts)
-            if not await exist_bigger_element(new_posts_ids, post_id):
+            if not exist_bigger_element(new_posts_ids, post_id):
                 posts = [p for p in posts if p.id > post_id]
                 log.debug(f"{'Found' if len(posts) != 0 else 'No'} new posts found for {vk_id}")
                 for post in posts:
@@ -67,12 +67,4 @@ class VkFetcher:
                 log.error(f"Error fetching posts for vk_id: {vk_id} with error: {e}")
         return None
 
-
-if __name__ == "__main__":
-    vk_fetcher = VkFetcher()
-    import logging
-    logging.getLogger("vkbottle").setLevel(logging.ERROR)
-    access_token = VK_ACCESS_TOKEN  # Replace with your VK access token
-    post = asyncio.run(vk_fetcher.get_post_by_id(-197752978, 356))
-    print(post)
 
