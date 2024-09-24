@@ -41,7 +41,7 @@ class VkFetcher:
             new_posts_ids = [post.id for post in new_posts]
             posts.extend(new_posts)
             if not exist_bigger_element(new_posts_ids, post_id):
-                posts = [p for p in posts if p.id > post_id]
+                posts = [p for p in posts if p.id is not None and p.id > post_id]
                 log.debug(f"{'Found' if len(posts) != 0 else 'No'} new posts found for {vk_id}")
                 for post in posts:
                     if post.id in unique_ids:
